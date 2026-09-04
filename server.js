@@ -100,6 +100,40 @@ app.get('/api/bookings', async (req, res) => {
   }
 });
 
+// Step 1: reserve the slot(s) the moment the customer opens the payment
+// screen -- before they've paid or uploaded anything. Holds the slot under
+// a short countdown (see lib/store.js) so someone else can't grab it out
+// from under a customer who's mid-payment.
+app.post('/api/bookings/hold', async (req, res) => {
+  try {
+    const { groupId, holdExpiresAt, bookings } = await store.createHold(req.body?.slots);
+    res.status(201).json({
+      groupId,
+      holdExpiresAt,
+      bookings: bookings.map((b) => ({ id: b.id, courtId: b.courtId, date: b.date, hour: b.hour, status: b.status, price: b.price })),
+    });
+  } catch (err) {
+    const status = err.code === 'TAKEN' ? 409 : 400;
+    res.status(status).json({ error: err.message, code: err.code });
+  }
+});
+
+// Lets the client free its own hold early (customer backed out or changed
+// their slot selection) instead of making everyone else wait out the timer.
+app.delete('/api/bookings/hold/:groupId', async (req, res) => {
+  try {
+    await store.releaseHold(req.params.groupId);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('DELETE /api/bookings/hold error:', err);
+    res.status(500).json({ error: 'Could not release hold.' });
+  }
+});
+
+// Step 2: the customer has paid and is submitting their name, contact, and
+// payment screenshot -- attaches it to their existing held slot(s) from
+// step 1. Requires the groupId returned by /api/bookings/hold; if that hold
+// already expired, the customer needs to select their slot(s) again.
 app.post('/api/bookings', (req, res) => {
   upload.single('screenshot')(req, res, async (uploadErr) => {
     if (uploadErr) {
@@ -107,24 +141,21 @@ app.post('/api/bookings', (req, res) => {
     }
     let objectPath = null;
     try {
+      const groupId = req.body?.groupId;
+      if (!groupId) {
+        const err = new Error('Missing reservation. Please select your slot(s) again.');
+        err.code = 'INVALID';
+        throw err;
+      }
       if (!req.file) {
         const err = new Error('A payment screenshot is required.');
         err.code = 'INVALID';
         throw err;
       }
 
-      let slots;
-      try {
-        slots = JSON.parse(req.body?.slots || '[]');
-      } catch (e) {
-        const err = new Error('Invalid slot selection.');
-        err.code = 'INVALID';
-        throw err;
-      }
-
       objectPath = await saveUploadedFile(req.file);
 
-      const { groupId, bookings } = await store.createBookings(slots, {
+      const { bookings } = await store.finalizeHold(groupId, {
         name: req.body?.name,
         contact: req.body?.contact,
         notes: req.body?.notes,
@@ -145,7 +176,7 @@ app.post('/api/bookings', (req, res) => {
     } catch (err) {
       // Clean up the uploaded file if the booking itself failed validation
       if (objectPath) deleteUploadedFile(objectPath);
-      const status = err.code === 'TAKEN' ? 409 : 400;
+      const status = err.code === 'TAKEN' ? 409 : err.code === 'HOLD_EXPIRED' ? 410 : 400;
       res.status(status).json({ error: err.message, code: err.code });
     }
   });

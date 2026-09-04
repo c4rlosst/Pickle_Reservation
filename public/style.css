@@ -623,6 +623,26 @@ main {
   font-weight: 600;
 }
 
+.hold-timer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: -6px 0 18px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--green-soft);
+  color: var(--green-strong);
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.hold-timer.urgent {
+  background: #fef2f2;
+  color: var(--danger);
+}
+
 /* --- Payment box --- */
 .payment-box {
   background: var(--surface-2);

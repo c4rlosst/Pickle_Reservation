@@ -9,6 +9,13 @@
   // selected, but keeping it in the key keeps things consistent if that changes)
   const selectedSlots = new Map();
 
+  // The active reservation hold for whichever slots are in the payment
+  // modal right now -- created the moment the modal opens (before the
+  // customer has paid), so nobody else can grab those slots while this
+  // customer is off sending money. { groupId, holdExpiresAt } or null.
+  let currentHold = null;
+  let holdCountdownInterval = null;
+
   const el = (id) => document.getElementById(id);
   const courtSelect = el('courtSelect');
   const monthLabel = el('monthLabel');
@@ -170,7 +177,89 @@
     renderTimes();
   });
 
-  bookSelectedBtn.addEventListener('click', () => openModal());
+  // Step 1 of booking: reserve the selected slot(s) on the server BEFORE
+  // opening the payment screen, so they're locked under this customer while
+  // they go pay -- not just once they come back and submit a screenshot.
+  bookSelectedBtn.addEventListener('click', async () => {
+    if (selectedSlots.size === 0 || bookSelectedBtn.disabled) return;
+    const slots = Array.from(selectedSlots.values()).map((s) => ({ courtId: s.courtId, hour: s.hour, date: s.date }));
+    bookSelectedBtn.disabled = true;
+    try {
+      const res = await fetch('/api/bookings/hold', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slots }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.error || 'One of those slots was just taken. Please pick another.', 'error');
+        selectedSlots.clear();
+        updateSummaryBar();
+        await loadTimes();
+        return;
+      }
+      currentHold = { groupId: data.groupId, holdExpiresAt: data.holdExpiresAt };
+      openModal();
+      startHoldCountdown();
+    } catch (err) {
+      showToast('Network error. Please try again.', 'error');
+    } finally {
+      updateSummaryBar(); // restores bookSelectedBtn's disabled state correctly
+    }
+  });
+
+  // Best-effort: free this customer's hold immediately instead of making
+  // everyone else wait out the full countdown, whenever they leave the
+  // payment screen without finishing (Back button).
+  function releaseCurrentHold() {
+    if (!currentHold) return;
+    const { groupId } = currentHold;
+    currentHold = null;
+    stopHoldCountdown();
+    fetch(`/api/bookings/hold/${groupId}`, { method: 'DELETE' }).catch(() => {});
+  }
+
+  function stopHoldCountdown() {
+    if (holdCountdownInterval) {
+      clearInterval(holdCountdownInterval);
+      holdCountdownInterval = null;
+    }
+  }
+
+  function renderHoldCountdown() {
+    const timerEl = el('holdTimer');
+    if (!currentHold) {
+      timerEl.classList.add('hidden');
+      return;
+    }
+    const msLeft = new Date(currentHold.holdExpiresAt).getTime() - Date.now();
+    if (msLeft <= 0) {
+      handleHoldExpired();
+      return;
+    }
+    const totalSeconds = Math.ceil(msLeft / 1000);
+    const mm = Math.floor(totalSeconds / 60);
+    const ss = String(totalSeconds % 60).padStart(2, '0');
+    timerEl.textContent = `Slot reserved for you — ${mm}:${ss} to complete payment`;
+    timerEl.classList.remove('hidden');
+    timerEl.classList.toggle('urgent', totalSeconds <= 60);
+  }
+
+  function startHoldCountdown() {
+    stopHoldCountdown();
+    renderHoldCountdown();
+    holdCountdownInterval = setInterval(renderHoldCountdown, 1000);
+  }
+
+  function handleHoldExpired() {
+    stopHoldCountdown();
+    currentHold = null;
+    closeModal();
+    selectedSlots.clear();
+    updateSummaryBar();
+    showToast('Your reserved time ran out. Please select your slot(s) again.', 'error');
+    loadTimes();
+  }
 
   // --- Calendar ---
   function renderCalendar() {
@@ -374,7 +463,12 @@
     bookingCard.classList.remove('success-compact');
   }
 
-  el('backBtn').addEventListener('click', closeModal);
+  el('backBtn').addEventListener('click', () => {
+    // Leaving the payment screen without finishing -- free the hold right
+    // away instead of making the slot wait out the full countdown.
+    releaseCurrentHold();
+    closeModal();
+  });
 
   el('copyNumberBtn').addEventListener('click', async () => {
     const btn = el('copyNumberBtn');
@@ -462,7 +556,7 @@
 
   bookingForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (selectedSlots.size === 0) return;
+    if (selectedSlots.size === 0 || !currentHold) return;
     formError.textContent = '';
     el('name').classList.remove('invalid');
     el('contact').classList.remove('invalid');
@@ -494,14 +588,8 @@
     submitBtn.disabled = true;
     submitLabel.textContent = 'SUBMITTING…';
 
-    const slots = Array.from(selectedSlots.values()).map((s) => ({
-      courtId: s.courtId,
-      hour: s.hour,
-      date: s.date,
-    }));
-
     const fd = new FormData();
-    fd.append('slots', JSON.stringify(slots));
+    fd.append('groupId', currentHold.groupId);
     fd.append('name', el('name').value);
     fd.append('contact', el('contact').value);
     fd.append('notes', el('notes').value);
@@ -511,16 +599,25 @@
       const res = await fetch('/api/bookings', { method: 'POST', body: fd });
       const data = await res.json();
       if (!res.ok) {
+        if (data.code === 'HOLD_EXPIRED') {
+          handleHoldExpired();
+          return;
+        }
         formError.textContent = data.error || 'Could not submit that booking.';
         submitBtn.disabled = false;
         submitLabel.textContent = 'SUBMIT FOR REVIEW';
         if (data.code === 'TAKEN') {
+          stopHoldCountdown();
+          currentHold = null;
           selectedSlots.clear();
           updateSummaryBar();
           await loadTimes();
         }
         return;
       }
+      stopHoldCountdown();
+      currentHold = null;
+      el('holdTimer').classList.add('hidden');
       bookingForm.classList.add('hidden');
       el('selectedSlotsList').classList.add('hidden');
       el('paymentAmount').closest('.payment-box').classList.add('hidden');
