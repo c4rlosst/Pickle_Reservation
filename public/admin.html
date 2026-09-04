@@ -170,16 +170,33 @@
   table.list th, table.list td { padding: 12px 10px; border-bottom: 1px solid var(--border); font-size: 0.87rem; text-align: left; vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   table.list col.col-date { width: 10%; }
   table.list col.col-time { width: 12%; }
-  table.list col.col-court { width: 8%; }
+  table.list col.col-court { width: 12%; }
   table.list col.col-name { width: 12%; }
-  table.list col.col-contact { width: 10%; }
+  table.list col.col-contact { width: 15%; }
   table.list col.col-proof { width: 7%; }
-  table.list col.col-notes { width: 13%; }
+  table.list col.col-notes { width: 4%; }
   table.list col.col-status { width: 10%; }
   table.list col.col-actions { width: 18%; }
   table.list td:nth-child(4) > div.muted { overflow: hidden; text-overflow: ellipsis; }
-  table.list .notes-preview { cursor: pointer; }
-  table.list .notes-preview:hover { color: var(--ink); text-decoration: underline; text-decoration-style: dotted; }
+  table.list td[data-label="Notes"] { text-align: center; }
+  .notes-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    border-radius: var(--radius-sm);
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color 120ms ease, transform 120ms ease;
+  }
+  .notes-icon-btn:hover { background: var(--surface-2); }
+  .notes-icon-btn:active { transform: scale(0.96); }
+  .notes-icon-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--green-soft); }
   table.list th {
     background: none;
     font-size: 0.7rem;

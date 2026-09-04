@@ -38,11 +38,11 @@
 
   function notesCellHtml(preview, full) {
     if (!full) return '';
-    return `<span class="notes-preview" data-full="${escapeHtml(full)}">${escapeHtml(preview)}</span>`;
+    return `<button type="button" class="notes-icon-btn" data-full="${escapeHtml(full)}" title="View notes" aria-label="View notes">📝</button>`;
   }
 
   el('bookingTbody').addEventListener('click', (e) => {
-    const trigger = e.target.closest('.notes-preview');
+    const trigger = e.target.closest('.notes-icon-btn');
     if (!trigger) return;
     textLightboxContent.textContent = trigger.dataset.full;
     textLightbox.classList.remove('hidden');
