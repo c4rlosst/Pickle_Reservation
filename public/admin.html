@@ -9,40 +9,191 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="style.css" />
 <style>
-  main.admin { max-width: 1100px; }
-  .login-box { max-width: 340px; margin: 60px auto; background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 24px; box-shadow: 0 2px 10px rgba(15,23,30,0.05); }
+  main.admin { max-width: 1100px; padding-top: 4px; }
+
+  /* --- Admin header: quiet wordmark + court-line divider (no emoji) --- */
+  header.site {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 24px 18px;
+  }
+  .site-brand { display: flex; align-items: center; gap: 12px; }
+  .site-mark {
+    width: 30px; height: 30px; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 8px;
+    background: var(--green-strong);
+    color: #fff;
+  }
+  .site-mark svg { width: 16px; height: 16px; display: block; }
+  header.site h1 {
+    margin: 0;
+    font-size: 1.32rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+  }
+  header.site h1 .site-suffix { font-weight: 600; color: var(--muted-2); margin-left: 2px; }
+  header.site p { margin: 3px 0 0; color: var(--muted); font-size: 0.88rem; }
+  .court-rule { max-width: 1100px; margin: 0 auto 28px; padding: 0 24px; }
+  .court-rule .line-a { height: 1px; background: var(--border-strong); }
+  .court-rule .line-b { height: 2px; width: 46px; background: var(--green-strong); margin-top: 4px; border-radius: 2px; }
+
+  .login-box { max-width: 340px; margin: 60px auto; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 24px; box-shadow: 0 2px 10px rgba(15,23,30,0.05); }
   .login-box h2 { margin-top: 0; }
-  table.list { width: 100%; border-collapse: collapse; background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
-  table.list th, table.list td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 0.88rem; text-align: left; }
-  table.list th { background: var(--header-bg); }
+
+  /* --- Block a slot / toolbar: one consistent input + label language --- */
+  .panel-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    margin-right: 2px;
+  }
+  .block-form-label {
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: var(--ink);
+    margin-right: 4px;
+  }
+  .block-form {
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+    margin-bottom: 18px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    padding: 14px 16px;
+    border-radius: var(--radius-md);
+  }
+  .block-form input, .block-form select,
+  select, .toolbar input[type="text"] {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    font-size: 0.86rem;
+    font-family: var(--font-body);
+  }
+  .block-form input:focus, .block-form select:focus,
+  select:focus, .toolbar input[type="text"]:focus {
+    outline: none;
+    border-color: var(--green-strong);
+  }
+  .block-form button#blockBtn {
+    background: var(--green-strong);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.86rem;
+    border: none;
+    padding: 9px 16px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background-color 120ms ease, transform 80ms ease;
+  }
+  .block-form button#blockBtn:hover { background: #0f6b30; }
+  .block-form button#blockBtn:active { transform: scale(0.97); }
+
+  .toolbar { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+  .toolbar-left { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  #filterDate { min-width: 210px; }
+  #refreshBtn {
+    flex: none; background: none; border: none; color: var(--green-strong);
+    font-weight: 700; font-size: 0.86rem; cursor: pointer; padding: 6px 4px;
+  }
+  #refreshBtn:hover { text-decoration: underline; }
+
+  /* --- Table: quiet header rule, no cell background, dot-based status --- */
+  table.list { width: 100%; border-collapse: collapse; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+  table.list th, table.list td { padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 0.87rem; text-align: left; vertical-align: middle; }
+  table.list th {
+    background: none;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border-strong);
+  }
   table.list tr:last-child td { border-bottom: none; }
-  .status-badge { padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
-  .status-confirmed { background: var(--accent-green-soft); color: #0d7a37; }
-  .status-pending { background: var(--accent-amber-soft); color: var(--accent-amber); }
-  .status-rejected { background: var(--accent-red-soft); color: var(--accent-red); }
-  .status-cancelled { background: var(--gray-soft); color: var(--muted); }
-  .status-blocked { background: var(--gray-soft); color: var(--muted); }
-  .thumb { width: 46px; height: 46px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); cursor: pointer; display: block; }
-  .row-actions button.confirm { background: var(--accent-green-soft); border-color: var(--accent-green-border); color: #0d7a37; }
-  .row-actions button.reject { background: var(--accent-red-soft); border-color: var(--accent-red-border); color: var(--accent-red); }
+  table.list td { font-variant-numeric: tabular-nums; }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-transform: capitalize;
+  }
+  .status-badge::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    flex: none;
+  }
+  .status-confirmed { color: var(--green-strong); }
+  .status-pending { color: var(--accent-amber); }
+  .status-rejected { color: var(--danger); }
+  .status-cancelled, .status-blocked { color: var(--muted); }
+
+  .thumb {
+    width: 40px; height: 40px; object-fit: cover;
+    border-radius: 8px; border: 1px solid var(--border);
+    cursor: zoom-in; display: block;
+    transition: transform 120ms ease, opacity 120ms ease;
+  }
+  .thumb:hover { transform: scale(1.06); opacity: 0.92; }
+
+  .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .row-actions button {
+    margin: 0;
+    padding: 6px 11px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    font-family: var(--font-body);
+    border-radius: 7px;
+    border: 1px solid var(--border-strong);
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+    transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+  }
+  .row-actions button:hover { color: var(--ink); background: var(--surface-2); }
+  .row-actions button.confirm {
+    background: var(--green-strong);
+    border-color: var(--green-strong);
+    color: #fff;
+  }
+  .row-actions button.confirm:hover { background: #0f6b30; border-color: #0f6b30; }
+  .row-actions button.reject:hover { color: var(--danger); border-color: var(--danger); background: #fdecec; }
+
   .lightbox { position: fixed; inset: 0; background: rgba(15,23,30,0.75); display: flex; align-items: center; justify-content: center; z-index: 80; cursor: zoom-out; padding: 24px; }
   .lightbox img { max-width: 100%; max-height: 100%; border-radius: 8px; }
-  .row-actions button { margin-right: 6px; padding: 5px 9px; font-size: 0.78rem; border-radius: 6px; border: 1px solid var(--border); background: var(--header-bg); color: var(--text); cursor: pointer; }
-  .row-actions button:hover { filter: brightness(0.96); }
-  .toolbar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
-  .toolbar-left { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-  select, .toolbar input[type="text"] { background: var(--card-bg); border: 1px solid var(--border); color: var(--text); padding: 7px 10px; border-radius: 8px; font-size: 0.88rem; }
-  .block-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 20px; background: var(--card-bg); border: 1px solid var(--border); padding: 12px; border-radius: 10px; }
-  .block-form input, .block-form select { background: var(--card-bg); border: 1px solid var(--border); color: var(--text); padding: 7px 9px; border-radius: 8px; font-size: 0.86rem; }
-  .block-form button { background: var(--accent-green); color: #fff; font-weight: 600; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
+
   .muted { color: var(--muted); font-size: 0.85rem; }
 </style>
 </head>
 <body>
 <header class="site">
-  <h1>🏓 Admin Dashboard</h1>
-  <p>Manage FORA Pickleball court bookings</p>
+  <div class="site-brand">
+    <span class="site-mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="3" y="3" width="12" height="12" rx="4" fill="currentColor"/>
+        <rect x="9" y="15" width="3.4" height="7" rx="1.2" fill="currentColor"/>
+      </svg>
+    </span>
+    <div>
+      <h1>FORA <span class="site-suffix">Admin</span></h1>
+      <p>Manage FORA Pickleball court bookings</p>
+    </div>
+  </div>
 </header>
+<div class="court-rule" aria-hidden="true">
+  <div class="line-a"></div>
+  <div class="line-b"></div>
+</div>
 
 <div class="login-box" id="loginBox">
   <h2>Admin login</h2>
@@ -56,7 +207,7 @@
 
 <main class="admin hidden" id="adminMain">
   <div class="block-form">
-    <strong style="margin-right:4px;">Block a slot</strong>
+    <strong class="block-form-label">Block a slot</strong>
     <select id="blockCourt"></select>
     <input type="date" id="blockDate" />
     <select id="blockHour"></select>
