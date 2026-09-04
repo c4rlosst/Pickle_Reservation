@@ -104,11 +104,12 @@
   #refreshBtn:hover { text-decoration: underline; }
 
   /* --- Table: quiet header rule, no cell background, dot-based status --- */
-  table.list { width: 100%; min-width: 980px; border-collapse: collapse; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+  table.list { width: 100%; min-width: 1000px; border-collapse: collapse; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
   table.list th, table.list td { padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 0.87rem; text-align: left; vertical-align: middle; white-space: nowrap; }
   table.list td:nth-child(4), table.list td:nth-child(7) { white-space: normal; }
   table.list td:nth-child(4) { min-width: 130px; }
-  table.list td:nth-child(7) { min-width: 140px; }
+  table.list td:nth-child(7) { min-width: 180px; }
+  table.list .muted { white-space: normal; }
   table.list th {
     background: none;
     font-size: 0.7rem;
