@@ -65,22 +65,10 @@ app.get('/api/bookings', (req, res) => {
     hour: b.hour,
     status: b.status, // pending | confirmed | blocked
     // Don't leak customer contact info (or screenshots) to the public booking grid
-    label: b.status === 'blocked' ? 'Unavailable' : b.status === 'pending' ? 'Pending' : initials(b.name),
+    name: b.status === 'blocked' ? null : b.name,
   }));
   res.json({ bookings });
 });
-
-function initials(name) {
-  if (!name) return 'Booked';
-  return (
-    name
-      .trim()
-      .split(/\s+/)
-      .map((p) => p[0].toUpperCase())
-      .slice(0, 2)
-      .join('.') + '.'
-  );
-}
 
 app.post('/api/bookings', (req, res) => {
   upload.single('screenshot')(req, res, (uploadErr) => {

@@ -2,10 +2,11 @@
   let CONFIG = null;
   let selected = null; // { courtId, hour }
   let currentDate = todayStr();
+  let selectedCourtId = null;
 
   const el = (id) => document.getElementById(id);
-  const gridHead = el('gridHead');
-  const gridBody = el('gridBody');
+  const courtTabs = el('courtTabs');
+  const slotGrid = el('slotGrid');
   const datePicker = el('datePicker');
   const dateLabel = el('dateLabel');
   const overlay = el('overlay');
@@ -26,11 +27,20 @@
     return `${y}-${m}-${day}`;
   }
 
-  function fmtHour(h) {
-    const period = h >= 12 ? 'PM' : 'AM';
-    let hour12 = h % 12;
-    if (hour12 === 0) hour12 = 12;
-    return `${hour12}:00 ${period}`;
+  // Compact "2-3 PM" style label for a one-hour slot starting at `h` (24h).
+  function fmtSlot(h) {
+    const start = h % 12 === 0 ? 12 : h % 12;
+    const endHour = h + 1;
+    const end = endHour % 12 === 0 ? 12 : endHour % 12;
+    const period = endHour >= 12 && endHour < 24 ? 'PM' : 'AM';
+    // Use the period of the end of the slot for the whole label, unless it
+    // crosses noon/midnight, in which case show both.
+    const startPeriod = h >= 12 ? 'PM' : 'AM';
+    const endPeriod = endHour >= 12 && endHour < 24 ? 'PM' : 'AM';
+    if (startPeriod === endPeriod) {
+      return `${start}-${end} ${endPeriod}`;
+    }
+    return `${start} ${startPeriod}-${end} ${endPeriod}`;
   }
 
   function showToast(msg, type) {
@@ -42,10 +52,22 @@
   async function loadConfig() {
     const res = await fetch('/api/config');
     CONFIG = await res.json();
+    if (!selectedCourtId) selectedCourtId = CONFIG.courts[0].id;
   }
 
-  function buildHead() {
-    gridHead.innerHTML = '<th>Time</th>' + CONFIG.courts.map((c) => `<th>${c.name}</th>`).join('');
+  function buildCourtTabs() {
+    courtTabs.innerHTML = '';
+    CONFIG.courts.forEach((court) => {
+      const btn = document.createElement('button');
+      btn.className = 'court-tab' + (court.id === selectedCourtId ? ' active' : '');
+      btn.textContent = court.name;
+      btn.addEventListener('click', () => {
+        selectedCourtId = court.id;
+        buildCourtTabs();
+        loadGrid();
+      });
+      courtTabs.appendChild(btn);
+    });
   }
 
   function isPastSlot(dateStr, hour) {
@@ -70,35 +92,74 @@
       bookingMap[`${b.courtId}-${b.hour}`] = b;
     });
 
-    gridBody.innerHTML = '';
+    const court = CONFIG.courts.find((c) => c.id === selectedCourtId);
+
+    slotGrid.innerHTML = '';
     CONFIG.hours.forEach((hour) => {
-      const tr = document.createElement('tr');
-      const timeTd = document.createElement('td');
-      timeTd.className = 'hour-label';
-      timeTd.textContent = fmtHour(hour);
-      tr.appendChild(timeTd);
+      const key = `${selectedCourtId}-${hour}`;
+      const booking = bookingMap[key];
+      const past = isPastSlot(currentDate, hour);
 
-      CONFIG.courts.forEach((court) => {
-        const key = `${court.id}-${hour}`;
-        const booking = bookingMap[key];
-        const td = document.createElement('td');
-        const past = isPastSlot(currentDate, hour);
-        const statusClass = booking ? (booking.status === 'pending' ? 'pending' : 'taken') : past ? 'past' : '';
-        td.className = 'slot' + (statusClass ? ' ' + statusClass : '');
-        td.textContent = booking ? booking.label : past ? '' : `₱${CONFIG.pricePerHour}`;
-        if (!booking && !past) {
-          td.addEventListener('click', () => openModal(court, hour));
+      const card = document.createElement('div');
+      let cls = 'slot-card';
+      if (booking) {
+        cls += booking.status === 'pending' ? ' pending-card' : ' taken';
+      } else if (past) {
+        cls += ' past';
+      } else {
+        cls += ' available';
+      }
+      card.className = cls;
+
+      const timeEl = document.createElement('div');
+      timeEl.className = 'time';
+      timeEl.textContent = fmtSlot(hour);
+      card.appendChild(timeEl);
+
+      if (booking) {
+        if (booking.name) {
+          const bookerEl = document.createElement('div');
+          bookerEl.className = 'booker';
+          bookerEl.innerHTML = `<span class="icon">👤</span> ${escapeHtml(booking.name)}`;
+          card.appendChild(bookerEl);
         }
-        tr.appendChild(td);
-      });
+        const badges = document.createElement('div');
+        badges.className = 'badges';
+        if (booking.status === 'confirmed') {
+          badges.innerHTML = '<span class="badge verified">✓ VERIFIED</span><span class="badge booked">BOOKED</span>';
+        } else if (booking.status === 'pending') {
+          badges.innerHTML = '<span class="badge pending">PENDING REVIEW</span>';
+        } else {
+          badges.innerHTML = '<span class="badge booked">UNAVAILABLE</span>';
+        }
+        card.appendChild(badges);
+      } else if (past) {
+        const statusEl = document.createElement('div');
+        statusEl.className = 'status-line';
+        statusEl.style.color = 'var(--muted)';
+        statusEl.textContent = 'Past';
+        card.appendChild(statusEl);
+      } else {
+        const statusEl = document.createElement('div');
+        statusEl.className = 'status-line';
+        statusEl.textContent = `Available · ₱${CONFIG.pricePerHour}`;
+        card.appendChild(statusEl);
+        card.addEventListener('click', () => openModal(court, hour));
+      }
 
-      gridBody.appendChild(tr);
+      slotGrid.appendChild(card);
     });
+  }
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[c]));
   }
 
   function openModal(court, hour) {
     selected = { courtId: court.id, hour };
-    modalSub.textContent = `${court.name} · ${fmtHour(hour)}–${fmtHour(hour + 1)} · ${currentDate}`;
+    modalSub.textContent = `${court.name} · ${fmtSlot(hour)} · ${currentDate}`;
     el('paymentAmount').textContent = `₱${CONFIG.pricePerHour} for this slot`;
     el('paymentInstructions').textContent = CONFIG.paymentInstructions;
     formError.textContent = '';
@@ -208,7 +269,7 @@
 
   (async function init() {
     await loadConfig();
-    buildHead();
+    buildCourtTabs();
     await loadGrid();
   })();
 })();
