@@ -291,6 +291,8 @@
     formError.textContent = '';
     bookingForm.reset();
     el('previewWrap').classList.add('hidden');
+    el('screenshot').closest('.file-upload').classList.remove('has-file');
+    el('fileUploadLabel').textContent = 'Upload screenshot';
     bookingForm.classList.remove('hidden');
     el('selectedSlotsList').classList.remove('hidden');
     el('paymentAmount').parentElement.classList.remove('hidden');
@@ -319,10 +321,16 @@
     const file = el('screenshot').files[0];
     const previewWrap = el('previewWrap');
     const previewImg = el('previewImg');
+    const fileUploadLabel = el('fileUploadLabel');
+    const fileUpload = el('screenshot').closest('.file-upload');
     if (!file) {
       previewWrap.classList.add('hidden');
+      fileUpload.classList.remove('has-file');
+      fileUploadLabel.textContent = 'Upload screenshot';
       return;
     }
+    fileUpload.classList.add('has-file');
+    fileUploadLabel.textContent = file.name;
     const reader = new FileReader();
     reader.onload = (e) => {
       previewImg.src = e.target.result;
