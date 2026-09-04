@@ -24,8 +24,11 @@
     border-radius: 8px;
     background: var(--green-strong);
     color: #fff;
+    font-size: 15px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: 0;
   }
-  .site-mark svg { width: 16px; height: 16px; display: block; }
   header.site h1 {
     margin: 0;
     font-size: 1.32rem;
@@ -35,9 +38,8 @@
   }
   header.site h1 .site-suffix { font-weight: 600; color: var(--muted-2); margin-left: 2px; }
   header.site p { margin: 3px 0 0; color: var(--muted); font-size: 0.88rem; }
-  .court-rule { max-width: 1100px; margin: 0 auto 28px; padding: 0 24px; }
-  .court-rule .line-a { height: 1px; background: var(--border-strong); }
-  .court-rule .line-b { height: 2px; width: 46px; background: var(--green-strong); margin-top: 4px; border-radius: 2px; }
+  .site-divider { max-width: 1100px; margin: 0 auto 28px; padding: 0 24px; }
+  .site-divider-line { height: 1px; background: var(--border-strong); }
 
   .login-box { max-width: 340px; margin: 60px auto; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 24px; box-shadow: 0 2px 10px rgba(15,23,30,0.05); }
   .login-box h2 { margin-top: 0; }
@@ -94,6 +96,32 @@
   .block-form button#blockBtn:hover { background: #0f6b30; }
   .block-form button#blockBtn:active { transform: scale(0.97); }
 
+  .block-form-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .block-hours {
+    margin-top: 12px; padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .block-hours-label {
+    display: block;
+    font-size: 0.78rem; font-weight: 700; color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .block-hours-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .hour-chip {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    font-family: var(--font-body);
+    border-radius: 999px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface-2);
+    color: var(--text);
+    cursor: pointer;
+    transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+  }
+  .hour-chip:hover { border-color: var(--green-strong); }
+  .hour-chip.selected { background: var(--green-strong); border-color: var(--green-strong); color: #fff; }
+
   .toolbar { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
   .toolbar-left { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   #filterDate { min-width: 210px; }
@@ -103,13 +131,24 @@
   }
   #refreshBtn:hover { text-decoration: underline; }
 
-  /* --- Table: quiet header rule, no cell background, dot-based status --- */
-  table.list { width: 100%; min-width: 1000px; border-collapse: collapse; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
-  table.list th, table.list td { padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 0.87rem; text-align: left; vertical-align: middle; white-space: nowrap; }
-  table.list td:nth-child(4), table.list td:nth-child(7) { white-space: normal; }
-  table.list td:nth-child(4) { min-width: 130px; }
-  table.list td:nth-child(7) { min-width: 180px; }
-  table.list .muted { white-space: normal; }
+  /* --- Table: quiet header rule, no cell background, dot-based status ---
+     Fixed layout so the table always fits in one frame (no horizontal
+     scroll needed); long text truncates with an ellipsis instead of
+     wrapping or pushing columns wider than the page. */
+  table.list { width: 100%; table-layout: fixed; border-collapse: collapse; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+  table.list th, table.list td { padding: 12px 10px; border-bottom: 1px solid var(--border); font-size: 0.87rem; text-align: left; vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  table.list col.col-date { width: 10%; }
+  table.list col.col-time { width: 12%; }
+  table.list col.col-court { width: 8%; }
+  table.list col.col-name { width: 12%; }
+  table.list col.col-contact { width: 10%; }
+  table.list col.col-proof { width: 7%; }
+  table.list col.col-notes { width: 13%; }
+  table.list col.col-status { width: 10%; }
+  table.list col.col-actions { width: 18%; }
+  table.list td:nth-child(4) > div.muted { overflow: hidden; text-overflow: ellipsis; }
+  table.list .notes-preview { cursor: pointer; }
+  table.list .notes-preview:hover { color: var(--ink); text-decoration: underline; text-decoration-style: dotted; }
   table.list th {
     background: none;
     font-size: 0.7rem;
@@ -151,9 +190,10 @@
   }
   .thumb:hover { transform: scale(1.06); opacity: 0.92; }
 
-  .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .row-actions { display: flex; gap: 6px; flex-wrap: wrap; max-width: 100%; }
   .row-actions button {
     margin: 0;
+    max-width: 100%;
     padding: 6px 11px;
     font-size: 0.78rem;
     font-weight: 700;
@@ -164,6 +204,8 @@
     color: var(--muted);
     cursor: pointer;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
   }
   .row-actions button:hover { color: var(--ink); background: var(--surface-2); }
@@ -177,6 +219,19 @@
 
   .lightbox { position: fixed; inset: 0; background: rgba(15,23,30,0.75); display: flex; align-items: center; justify-content: center; z-index: 80; cursor: zoom-out; padding: 24px; }
   .lightbox img { max-width: 100%; max-height: 100%; border-radius: 8px; }
+  .text-lightbox-card {
+    background: var(--card-bg);
+    border-radius: var(--radius-md);
+    padding: 20px 22px;
+    max-width: 420px;
+    max-height: 100%;
+    overflow-y: auto;
+    cursor: auto;
+    font-size: 0.92rem;
+    line-height: 1.5;
+    color: var(--text);
+    white-space: pre-line;
+  }
 
   .muted { color: var(--muted); font-size: 0.85rem; }
 </style>
@@ -184,22 +239,14 @@
 <body>
 <header class="site">
   <div class="site-brand">
-    <span class="site-mark" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="3" y="3" width="12" height="12" rx="4" fill="currentColor"/>
-        <rect x="9" y="15" width="3.4" height="7" rx="1.2" fill="currentColor"/>
-      </svg>
-    </span>
+    <span class="site-mark" aria-hidden="true">F</span>
     <div>
       <h1>FORA <span class="site-suffix">Admin</span></h1>
       <p>Manage FORA Pickleball court bookings</p>
     </div>
   </div>
 </header>
-<div class="court-rule" aria-hidden="true">
-  <div class="line-a"></div>
-  <div class="line-b"></div>
-</div>
+<div class="site-divider" aria-hidden="true"><div class="site-divider-line"></div></div>
 
 <div class="login-box" id="loginBox">
   <h2>Admin login</h2>
@@ -213,12 +260,17 @@
 
 <main class="admin hidden" id="adminMain">
   <div class="block-form">
-    <strong class="block-form-label">Block a slot</strong>
-    <select id="blockCourt"></select>
-    <input type="date" id="blockDate" />
-    <select id="blockHour"></select>
-    <input type="text" id="blockNotes" placeholder="Reason (optional)" />
-    <button id="blockBtn">Block</button>
+    <div class="block-form-row">
+      <strong class="block-form-label">Block a slot</strong>
+      <select id="blockCourt"></select>
+      <input type="date" id="blockDate" />
+      <input type="text" id="blockNotes" placeholder="Reason (optional)" />
+      <button id="blockBtn">Block</button>
+    </div>
+    <div class="block-hours">
+      <span class="block-hours-label" id="blockHoursLabel">Select times</span>
+      <div class="block-hours-chips" id="blockHours"></div>
+    </div>
   </div>
 
   <div class="toolbar">
@@ -239,6 +291,11 @@
 
   <div class="grid-wrap" style="overflow-x:auto;">
     <table class="list" id="bookingTable">
+      <colgroup>
+        <col class="col-date" /><col class="col-time" /><col class="col-court" />
+        <col class="col-name" /><col class="col-contact" /><col class="col-proof" />
+        <col class="col-notes" /><col class="col-status" /><col class="col-actions" />
+      </colgroup>
       <thead>
         <tr>
           <th>Date</th>
@@ -258,6 +315,7 @@
 </main>
 
 <div class="lightbox hidden" id="lightbox"><img id="lightboxImg" alt="Payment screenshot" /></div>
+<div class="lightbox hidden" id="textLightbox"><div class="text-lightbox-card" id="textLightboxContent"></div></div>
 
 <div class="toast hidden" id="toast"></div>
 

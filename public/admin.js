@@ -1,6 +1,7 @@
 (function () {
   let CONFIG = null;
   let adminPassword = sessionStorage.getItem('fora_admin_pw') || '';
+  const selectedBlockHours = new Set();
 
   const el = (id) => document.getElementById(id);
   const loginBox = el('loginBox');
@@ -8,6 +9,8 @@
   const toast = el('toast');
   const lightbox = el('lightbox');
   const lightboxImg = el('lightboxImg');
+  const textLightbox = el('textLightbox');
+  const textLightboxContent = el('textLightboxContent');
 
   function showToast(msg, type) {
     toast.textContent = msg;
@@ -28,6 +31,20 @@
   }
 
   lightbox.addEventListener('click', () => lightbox.classList.add('hidden'));
+  textLightbox.addEventListener('click', () => textLightbox.classList.add('hidden'));
+  textLightboxContent.addEventListener('click', (e) => e.stopPropagation());
+
+  function notesCellHtml(preview, full) {
+    if (!full) return '';
+    return `<span class="notes-preview" data-full="${escapeHtml(full)}">${escapeHtml(preview)}</span>`;
+  }
+
+  el('bookingTbody').addEventListener('click', (e) => {
+    const trigger = e.target.closest('.notes-preview');
+    if (!trigger) return;
+    textLightboxContent.textContent = trigger.dataset.full;
+    textLightbox.classList.remove('hidden');
+  });
 
   async function authedFetch(url, opts) {
     opts = opts || {};
@@ -82,36 +99,86 @@
   function populateBlockForm() {
     const courtSel = el('blockCourt');
     courtSel.innerHTML = CONFIG.courts.map((c) => `<option value="${c.id}">${c.name}</option>`).join('');
-    const hourSel = el('blockHour');
-    hourSel.innerHTML = CONFIG.hours.map((h) => `<option value="${h}">${fmtHour(h)}</option>`).join('');
+
+    selectedBlockHours.clear();
+    const hoursWrap = el('blockHours');
+    hoursWrap.innerHTML = CONFIG.hours
+      .map((h) => `<button type="button" class="hour-chip" data-hour="${h}">${fmtHour(h)}</button>`)
+      .join('');
+    updateBlockHoursSummary();
+
     const today = new Date();
     el('blockDate').value = today.toISOString().slice(0, 10);
   }
 
-  el('blockBtn').addEventListener('click', async () => {
-    const payload = {
-      courtId: Number(el('blockCourt').value),
-      date: el('blockDate').value,
-      hour: Number(el('blockHour').value),
-      notes: el('blockNotes').value,
-    };
-    try {
-      const res = await authedFetch('/api/admin/block', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        showToast(data.error || 'Could not block slot', 'error');
-        return;
-      }
-      showToast('Slot blocked', 'success');
-      el('blockNotes').value = '';
-      await loadBookings();
-    } catch (e) {
-      /* handled by authedFetch */
+  function updateBlockHoursSummary() {
+    const label = el('blockHoursLabel');
+    if (selectedBlockHours.size === 0) label.textContent = 'Select times';
+    else if (selectedBlockHours.size === 1) label.textContent = '1 time selected';
+    else label.textContent = `${selectedBlockHours.size} times selected`;
+  }
+
+  el('blockHours').addEventListener('click', (e) => {
+    const chip = e.target.closest('.hour-chip');
+    if (!chip) return;
+    const hour = Number(chip.dataset.hour);
+    if (selectedBlockHours.has(hour)) {
+      selectedBlockHours.delete(hour);
+      chip.classList.remove('selected');
+    } else {
+      selectedBlockHours.add(hour);
+      chip.classList.add('selected');
     }
+    updateBlockHoursSummary();
+  });
+
+  el('blockBtn').addEventListener('click', async () => {
+    if (selectedBlockHours.size === 0) {
+      showToast('Pick at least one time to block', 'error');
+      return;
+    }
+    const courtId = Number(el('blockCourt').value);
+    const date = el('blockDate').value;
+    const notes = el('blockNotes').value;
+    const hours = Array.from(selectedBlockHours).sort((a, b) => a - b);
+
+    let blocked = 0;
+    let failed = 0;
+    let firstError = '';
+    for (const hour of hours) {
+      try {
+        const res = await authedFetch('/api/admin/block', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ courtId, date, hour, notes }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          failed++;
+          firstError = firstError || data.error || 'Could not block slot';
+        } else {
+          blocked++;
+        }
+      } catch (e) {
+        failed++;
+        /* network/auth errors already surfaced by authedFetch */
+      }
+    }
+
+    if (blocked > 0) {
+      const msg = failed > 0
+        ? `${blocked} slot${blocked > 1 ? 's' : ''} blocked, ${failed} failed${firstError ? ` (${firstError})` : ''}`
+        : `${blocked} slot${blocked > 1 ? 's' : ''} blocked`;
+      showToast(msg, failed > 0 ? 'error' : 'success');
+    } else if (failed > 0) {
+      showToast(firstError || 'Could not block those slots', 'error');
+    }
+
+    el('blockNotes').value = '';
+    selectedBlockHours.clear();
+    el('blockHours').querySelectorAll('.hour-chip.selected').forEach((c) => c.classList.remove('selected'));
+    updateBlockHoursSummary();
+    await loadBookings();
   });
 
   async function loadBookings() {
@@ -170,7 +237,7 @@
       <td>${escapeHtml(first.name)}<div class="muted">₱${totalPrice} total</div></td>
       <td>${escapeHtml(first.contact)}</td>
       <td class="proof-cell"></td>
-      <td>${escapeHtml(first.notes || '')}</td>
+      <td>${notesCellHtml(first.notes || '', first.notes || '')}</td>
       <td><span class="status-badge status-pending">pending (${group.length})</span></td>
       <td class="row-actions"></td>
     `;
@@ -204,7 +271,12 @@
       <td>${escapeHtml(b.name)}${priceLabel ? `<div class="muted">${priceLabel}</div>` : ''}</td>
       <td>${escapeHtml(b.contact)}</td>
       <td class="proof-cell"></td>
-      <td>${escapeHtml(b.notes || '')}${b.rejectReason ? `<div class="muted">Reason: ${escapeHtml(b.rejectReason)}</div>` : ''}</td>
+      <td>${(() => {
+        const parts = [];
+        if (b.notes) parts.push(b.notes);
+        if (b.rejectReason) parts.push(`Reason: ${b.rejectReason}`);
+        return notesCellHtml(parts.join(' \u00b7 '), parts.join('\n'));
+      })()}</td>
       <td><span class="status-badge status-${b.status}">${b.status}</span></td>
       <td class="row-actions"></td>
     `;
