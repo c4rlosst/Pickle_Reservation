@@ -396,10 +396,35 @@
     reader.readAsDataURL(file);
   });
 
+  // Accepts either an email address, or a PH mobile number (11 digits,
+  // starting with 09 -- e.g. 0917 123 4567; spaces/dashes are ignored).
+  // Returns an error message, or null if the value is valid.
+  function validateContact(value) {
+    if (value.includes('@')) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+        return 'Please enter a valid email address.';
+      }
+      return null;
+    }
+    const digits = value.replace(/\D/g, '');
+    if (!/^09\d{9}$/.test(digits)) {
+      return 'Please enter a valid 11-digit PH mobile number (e.g. 0917 123 4567), or an email address.';
+    }
+    return null;
+  }
+
   bookingForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (selectedSlots.size === 0) return;
     formError.textContent = '';
+
+    const contactValue = el('contact').value.trim();
+    const contactError = validateContact(contactValue);
+    if (contactError) {
+      formError.textContent = contactError;
+      el('contact').focus();
+      return;
+    }
 
     const fileInput = el('screenshot');
     if (!fileInput.files[0]) {
