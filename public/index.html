@@ -10,104 +10,141 @@
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-<header class="site">
-  <div class="brand">
-    <span class="brand-mark">🏓</span>
-    <span class="brand-name">FORA<span class="brand-name-accent">Pickleball</span></span>
-  </div>
-</header>
-
 <main>
-  <h2 class="section-title">Choose your slots</h2>
-  <p class="section-sub" id="dateLabel"></p>
+  <div class="booking-card" id="bookingCard">
+    <div class="card-inner" id="cardInner">
 
-  <div class="date-strip-wrap">
-    <div class="date-strip" id="dateStrip"></div>
-    <button class="cal-btn" id="calBtn" aria-label="Pick a date">📅</button>
-    <input type="date" id="datePicker" class="visually-hidden-date" />
-  </div>
-
-  <div class="grid-wrap">
-    <table class="grid" id="grid">
-      <thead>
-        <tr id="gridHead"></tr>
-      </thead>
-      <tbody id="gridBody"></tbody>
-    </table>
-  </div>
-
-  <div class="legend">
-    <span><span class="dot open"></span> Open</span>
-    <span><span class="dot selected"></span> Selected</span>
-    <span><span class="dot booked"></span> Booked</span>
-    <span><span class="dot unavailable"></span> Unavailable</span>
-    <span><span class="dot past"></span> Past</span>
-  </div>
-  <p class="hint">Tap cells to build your booking. Selected slots are added to the summary below.</p>
-
-  <!-- Selection summary -->
-  <div class="summary-box hidden" id="summaryBar">
-    <div class="summary-text" id="summaryText"></div>
-    <div class="summary-actions">
-      <button type="button" class="btn ghost" id="clearSelectionBtn">Clear</button>
-      <button type="button" class="btn primary" id="bookSelectedBtn">Book selected →</button>
-    </div>
-  </div>
-</main>
-
-<footer>
-  Admin? <a href="/admin.html">Manage bookings</a>
-</footer>
-
-<!-- Booking modal -->
-<div class="overlay hidden" id="overlay">
-  <div class="modal">
-    <h2>Confirm your selection</h2>
-    <p class="sub" id="modalSub"></p>
-
-    <div class="selected-slots-list" id="selectedSlotsList"></div>
-
-    <div class="payment-box">
-      <div class="payment-amount" id="paymentAmount"></div>
-      <p class="payment-instructions" id="paymentInstructions"></p>
-    </div>
-
-    <form id="bookingForm">
-      <div class="field">
-        <label for="name">Full name</label>
-        <input type="text" id="name" required maxlength="80" />
-      </div>
-      <div class="field">
-        <label for="contact">Phone or email</label>
-        <input type="text" id="contact" required maxlength="120" />
-      </div>
-      <div class="field">
-        <label for="screenshot">Payment screenshot</label>
-        <input type="file" id="screenshot" accept="image/*" required />
-        <div class="preview-wrap hidden" id="previewWrap">
-          <img id="previewImg" alt="Screenshot preview" />
+      <!-- Venue header -->
+      <div class="venue-header">
+        <div class="venue-mark">🏓</div>
+        <div class="venue-info">
+          <h1 class="venue-name">FORA Pickleball Courts</h1>
+          <div class="venue-meta">
+            <span id="venueCourtsMeta">Courts</span>
+            <span class="dot-sep">•</span>
+            <span id="venueHoursMeta">Hours</span>
+          </div>
+        </div>
+        <div class="venue-price">
+          <p class="venue-price-label">Per Hour</p>
+          <p class="venue-price-value" id="venuePrice">&mdash;</p>
         </div>
       </div>
-      <div class="field">
-        <label for="notes">Notes (optional)</label>
-        <textarea id="notes" rows="2" maxlength="200"></textarea>
-      </div>
-      <div class="error-msg" id="formError"></div>
-      <div class="modal-actions">
-        <button type="button" class="btn ghost" id="cancelBtn">Cancel</button>
-        <button type="submit" class="btn primary" id="submitBtn">Submit for review</button>
-      </div>
-    </form>
 
-    <div class="success-box hidden" id="successBox">
-      <div class="success-icon">✓</div>
-      <h3>You're on the list!</h3>
-      <p>Your slot is held as <strong>Pending</strong>. We'll verify your payment
-      screenshot and confirm your booking shortly.</p>
-      <button type="button" class="btn primary" id="closeSuccessBtn">Done</button>
+      <div class="card-divider"></div>
+
+      <!-- Date navigation -->
+      <div class="section">
+        <div class="section-head">
+          <h2 class="section-title">Choose your slots</h2>
+          <p class="section-sub" id="dateLabel"></p>
+        </div>
+
+        <div class="date-strip-wrap">
+          <div class="date-strip" id="dateStrip"></div>
+          <button class="cal-btn" id="calBtn" aria-label="Pick a date">
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          </button>
+          <input type="date" id="datePicker" class="visually-hidden-date" />
+        </div>
+
+        <div class="grid-wrap">
+          <table class="grid" id="grid">
+            <thead>
+              <tr id="gridHead"></tr>
+            </thead>
+            <tbody id="gridBody"></tbody>
+          </table>
+        </div>
+
+        <div class="legend">
+          <span><span class="dot open"></span> Open</span>
+          <span><span class="dot selected"></span> Selected</span>
+          <span><span class="dot booked"></span> Booked</span>
+          <span><span class="dot unavailable"></span> Unavailable</span>
+          <span><span class="dot past"></span> Past</span>
+        </div>
+        <p class="hint">Tap cells to build your booking. Selected slots are added below.</p>
+      </div>
+
+      <!-- Bottom action bar -->
+      <div class="bottom-actions">
+        <div class="summary-text hidden" id="summaryText"></div>
+        <div class="bottom-actions-buttons">
+          <button type="button" class="btn ghost" id="clearSelectionBtn" disabled>Clear</button>
+          <button type="button" class="btn primary" id="bookSelectedBtn" disabled>Next</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sliding confirmation panel -->
+    <div class="confirm-panel" id="confirmPanel">
+      <div class="confirm-scroll">
+        <div class="confirm-head">
+          <button type="button" class="back-btn" id="backBtn" aria-label="Back">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 19l-7-7 7-7"/></svg>
+            <span>Back</span>
+          </button>
+          <h3>Confirm Booking</h3>
+          <span class="confirm-head-spacer"></span>
+        </div>
+
+        <div class="venue-summary-row">
+          <div class="venue-mark small">🏓</div>
+          <div>
+            <h4>FORA Pickleball Courts</h4>
+            <p id="modalSub"></p>
+          </div>
+        </div>
+
+        <form id="bookingForm">
+          <div class="selected-slots-list" id="selectedSlotsList"></div>
+
+          <div class="payment-box">
+            <div class="payment-amount" id="paymentAmount"></div>
+            <p class="payment-instructions" id="paymentInstructions"></p>
+          </div>
+
+          <div class="field">
+            <label for="name">Full name</label>
+            <input type="text" id="name" required maxlength="80" />
+          </div>
+          <div class="field">
+            <label for="contact">Phone or email</label>
+            <input type="text" id="contact" required maxlength="120" />
+          </div>
+          <div class="field">
+            <label for="screenshot">Payment screenshot</label>
+            <input type="file" id="screenshot" accept="image/*" required />
+            <div class="preview-wrap hidden" id="previewWrap">
+              <img id="previewImg" alt="Screenshot preview" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="notes">Notes (optional)</label>
+            <textarea id="notes" rows="2" maxlength="200"></textarea>
+          </div>
+          <div class="error-msg" id="formError"></div>
+
+          <button type="submit" class="shine-btn" id="submitBtn">
+            <span>SUBMIT FOR REVIEW</span>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>
+          </button>
+        </form>
+
+        <div class="success-box hidden" id="successBox">
+          <div class="success-icon">✓</div>
+          <h3>You're on the list!</h3>
+          <p>Your slot is held as <strong>Pending</strong>. We'll verify your payment
+          screenshot and confirm your booking shortly.</p>
+          <button type="button" class="btn primary" id="closeSuccessBtn">Done</button>
+        </div>
+      </div>
     </div>
   </div>
-</div>
+
+  <p class="admin-link">Admin? <a href="/admin.html">Manage bookings</a></p>
+</main>
 
 <div class="toast hidden" id="toast"></div>
 

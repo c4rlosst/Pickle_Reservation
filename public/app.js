@@ -11,14 +11,16 @@
   const datePicker = el('datePicker');
   const dateLabel = el('dateLabel');
   const dateStrip = el('dateStrip');
-  const overlay = el('overlay');
+  const bookingCard = el('bookingCard');
+  const confirmPanel = el('confirmPanel');
   const modalSub = el('modalSub');
   const bookingForm = el('bookingForm');
   const formError = el('formError');
   const toast = el('toast');
   const successBox = el('successBox');
-  const summaryBar = el('summaryBar');
   const summaryText = el('summaryText');
+  const clearSelectionBtn = el('clearSelectionBtn');
+  const bookSelectedBtn = el('bookSelectedBtn');
 
   function todayStr() {
     return fmtDate(new Date());
@@ -44,6 +46,13 @@
     return `${start} ${startPeriod}-${end} ${endPeriod}`;
   }
 
+  // "6 AM" style label for a single hour boundary (used for the venue meta row).
+  function fmtHour(h) {
+    const hour = h % 12 === 0 ? 12 : h % 12;
+    const period = h >= 12 && h < 24 ? 'PM' : 'AM';
+    return `${hour} ${period}`;
+  }
+
   function courtName(courtId) {
     const c = CONFIG.courts.find((c) => c.id === courtId);
     return c ? c.name : `Court ${courtId}`;
@@ -58,6 +67,10 @@
   async function loadConfig() {
     const res = await fetch('/api/config');
     CONFIG = await res.json();
+
+    el('venueCourtsMeta').textContent = `${CONFIG.courts.length} court${CONFIG.courts.length > 1 ? 's' : ''}`;
+    el('venueHoursMeta').textContent = `${fmtHour(CONFIG.openHour)} – ${fmtHour(CONFIG.closeHour)}`;
+    el('venuePrice').textContent = `₱${CONFIG.pricePerHour}`;
   }
 
   function buildHead() {
@@ -75,12 +88,17 @@
   function updateSummaryBar() {
     const n = selectedSlots.size;
     if (n === 0) {
-      summaryBar.classList.add('hidden');
+      summaryText.classList.add('hidden');
+      summaryText.textContent = '';
+      clearSelectionBtn.disabled = true;
+      bookSelectedBtn.disabled = true;
       return;
     }
     const total = n * CONFIG.pricePerHour;
     summaryText.textContent = `${n} slot${n > 1 ? 's' : ''} selected · ₱${total} total`;
-    summaryBar.classList.remove('hidden');
+    summaryText.classList.remove('hidden');
+    clearSelectionBtn.disabled = false;
+    bookSelectedBtn.disabled = false;
   }
 
   function toggleSlot(courtId, hour) {
@@ -98,13 +116,13 @@
     updateSummaryBar();
   }
 
-  el('clearSelectionBtn').addEventListener('click', () => {
+  clearSelectionBtn.addEventListener('click', () => {
     selectedSlots.clear();
     updateSummaryBar();
     if (renderGrid.lastData) renderGrid(renderGrid.lastData);
   });
 
-  el('bookSelectedBtn').addEventListener('click', () => openModal());
+  bookSelectedBtn.addEventListener('click', () => openModal());
 
   function buildDateStrip() {
     dateStrip.innerHTML = '';
@@ -241,23 +259,23 @@
     el('paymentAmount').parentElement.classList.remove('hidden');
     successBox.classList.add('hidden');
     el('submitBtn').disabled = false;
-    el('submitBtn').textContent = 'Submit for review';
-    overlay.classList.remove('hidden');
+    el('submitBtn').querySelector('span').textContent = 'SUBMIT FOR REVIEW';
+
+    confirmPanel.classList.add('open');
+    bookingCard.classList.add('confirm-open');
   }
 
   function closeModal() {
-    overlay.classList.add('hidden');
+    confirmPanel.classList.remove('open');
+    bookingCard.classList.remove('confirm-open');
   }
 
-  el('cancelBtn').addEventListener('click', closeModal);
+  el('backBtn').addEventListener('click', closeModal);
   el('closeSuccessBtn').addEventListener('click', async () => {
     closeModal();
     selectedSlots.clear();
     updateSummaryBar();
     await loadGrid();
-  });
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) closeModal();
   });
 
   el('screenshot').addEventListener('change', () => {
@@ -288,8 +306,9 @@
     }
 
     const submitBtn = el('submitBtn');
+    const submitLabel = submitBtn.querySelector('span');
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Submitting…';
+    submitLabel.textContent = 'SUBMITTING…';
 
     const slots = Array.from(selectedSlots.values()).map((s) => ({
       courtId: s.courtId,
@@ -310,7 +329,7 @@
       if (!res.ok) {
         formError.textContent = data.error || 'Could not submit that booking.';
         submitBtn.disabled = false;
-        submitBtn.textContent = 'Submit for review';
+        submitLabel.textContent = 'SUBMIT FOR REVIEW';
         if (data.code === 'TAKEN') {
           selectedSlots.clear();
           updateSummaryBar();
@@ -325,7 +344,7 @@
     } catch (err) {
       formError.textContent = 'Network error. Please try again.';
       submitBtn.disabled = false;
-      submitBtn.textContent = 'Submit for review';
+      submitLabel.textContent = 'SUBMIT FOR REVIEW';
     }
   });
 
@@ -356,6 +375,7 @@
   (async function init() {
     await loadConfig();
     buildHead();
+    updateSummaryBar();
     await loadGrid();
   })();
 })();
