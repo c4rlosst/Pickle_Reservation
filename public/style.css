@@ -359,7 +359,7 @@ main {
   background: var(--card-bg);
   color: var(--text);
   font-size: 0.85rem;
-  font-weight: 700;
+  font-weight: 500;
   cursor: pointer;
   font-variant-numeric: tabular-nums;
   transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease, transform 80ms ease;
