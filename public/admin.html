@@ -169,16 +169,17 @@
   table.list { width: 100%; table-layout: fixed; border-collapse: collapse; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
   table.list th, table.list td { padding: 12px 10px; border-bottom: 1px solid var(--border); font-size: 0.87rem; text-align: left; vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   table.list col.col-date { width: 10%; }
-  table.list col.col-time { width: 12%; }
+  table.list col.col-time { width: 16%; }
   table.list col.col-court { width: 12%; }
   table.list col.col-name { width: 12%; }
   table.list col.col-contact { width: 15%; }
   table.list col.col-proof { width: 7%; }
   table.list col.col-notes { width: 4%; }
   table.list col.col-status { width: 10%; }
-  table.list col.col-actions { width: 18%; }
+  table.list col.col-actions { width: 14%; }
   table.list td:nth-child(4) > div.muted { overflow: hidden; text-overflow: ellipsis; }
   table.list td[data-label="Notes"] { text-align: center; }
+  table.list td[data-label="Time"] { white-space: normal; }
   .notes-icon-btn {
     display: inline-flex;
     align-items: center;
@@ -448,7 +449,7 @@
           <th>Name</th>
           <th>Contact</th>
           <th>Proof</th>
-          <th>Notes</th>
+          <th title="Notes" aria-label="Notes">📝</th>
           <th>Status</th>
           <th>Actions</th>
         </tr>
