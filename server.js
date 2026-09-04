@@ -12,11 +12,14 @@ const PORT = process.env.PORT || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
 // On Vercel the filesystem is read-only outside /tmp, so uploaded payment
-// screenshots can't live on local disk there. When Vercel Blob is linked
-// (BLOB_READ_WRITE_TOKEN is set automatically once you add the integration)
-// screenshots are stored there instead; everywhere else (local dev, a VPS,
-// Render, etc.) they stay on local disk exactly as before.
-const USE_BLOB = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+// screenshots can't live on local disk there. When a Blob store is
+// connected to the project, Vercel sets BLOB_STORE_ID and the SDK
+// authenticates automatically via a short-lived OIDC token (the
+// recommended default -- no static secret to manage); a static
+// BLOB_READ_WRITE_TOKEN also works if that's what's configured instead.
+// Everywhere else (local dev, a VPS, Render, etc.) screenshots stay on
+// local disk exactly as before.
+const USE_BLOB = Boolean(process.env.BLOB_STORE_ID || process.env.BLOB_READ_WRITE_TOKEN);
 let blobApi = null;
 if (USE_BLOB) {
   blobApi = require('@vercel/blob');
