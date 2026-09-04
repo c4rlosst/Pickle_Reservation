@@ -64,6 +64,7 @@ async function requireAdmin(req, res, next) {
     if (supplied && (await store.verifyAdminPassword(supplied))) return next();
     res.status(401).json({ error: 'Unauthorized' });
   } catch (err) {
+    console.error('requireAdmin error:', err);
     res.status(500).json({ error: 'Could not verify admin password.' });
   }
 }
@@ -73,6 +74,7 @@ app.get('/api/config', async (req, res) => {
   try {
     res.json(await store.getConfig());
   } catch (err) {
+    console.error('GET /api/config error:', err);
     res.status(500).json({ error: 'Could not load config.' });
   }
 });
@@ -93,6 +95,7 @@ app.get('/api/bookings', async (req, res) => {
     }));
     res.json({ bookings });
   } catch (err) {
+    console.error('GET /api/bookings error:', err);
     res.status(500).json({ error: 'Could not load bookings.' });
   }
 });
@@ -155,6 +158,7 @@ app.post('/api/admin/login', async (req, res) => {
     if (await store.verifyAdminPassword(password)) return res.json({ ok: true });
     res.status(401).json({ ok: false, error: 'Incorrect password' });
   } catch (err) {
+    console.error('POST /api/admin/login error:', err);
     res.status(500).json({ ok: false, error: 'Could not verify password.' });
   }
 });
@@ -168,6 +172,7 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
     }));
     res.json({ bookings });
   } catch (err) {
+    console.error('GET /api/admin/bookings error:', err);
     res.status(500).json({ error: 'Could not load bookings.' });
   }
 });
@@ -189,6 +194,7 @@ app.get('/api/admin/screenshots/:objectPath(.*)', requireAdmin, async (req, res)
     if (error || !data?.signedUrl) return res.status(404).json({ error: 'Not found' });
     res.redirect(data.signedUrl);
   } catch (err) {
+    console.error('GET /api/admin/screenshots error:', err);
     res.status(500).json({ error: 'Could not load screenshot.' });
   }
 });
