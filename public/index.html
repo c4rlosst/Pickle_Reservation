@@ -4,12 +4,9 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>FORA Pickleball &mdash; Court Booking</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="style.css" />
 </head>
-<body>
+<body class="pb-dark">
 <main>
   <div class="booking-card" id="bookingCard">
     <div class="card-inner" id="cardInner">
@@ -21,7 +18,7 @@
           <h1 class="venue-name">FORA Pickleball Courts</h1>
           <div class="venue-meta">
             <span id="venueCourtsMeta">Courts</span>
-            <span class="dot-sep">•</span>
+            <span class="dot-sep">&bull;</span>
             <span id="venueHoursMeta">Hours</span>
           </div>
         </div>
@@ -31,40 +28,28 @@
         </div>
       </div>
 
+      <div class="section">
+        <label class="field-label" for="courtSelect">Choose court</label>
+        <div class="court-select-wrap">
+          <select id="courtSelect" class="court-select"></select>
+        </div>
+      </div>
+
       <div class="card-divider"></div>
 
-      <!-- Date navigation -->
+      <!-- Date range navigation -->
       <div class="section">
-        <div class="section-head">
-          <h2 class="section-title">Choose your slots</h2>
-          <p class="section-sub" id="dateLabel"></p>
-        </div>
-
-        <div class="date-strip-wrap">
-          <div class="date-strip" id="dateStrip"></div>
-          <button class="cal-btn" id="calBtn" aria-label="Pick a date">
-            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <div class="range-nav">
+          <button type="button" class="range-nav-btn" id="rangePrevBtn" aria-label="Previous days">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M15 19l-7-7 7-7"/></svg>
           </button>
-          <input type="date" id="datePicker" class="visually-hidden-date" />
+          <span class="range-label" id="rangeLabel">&nbsp;</span>
+          <button type="button" class="range-nav-btn" id="rangeNextBtn" aria-label="Next days">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+          </button>
         </div>
 
-        <div class="grid-wrap">
-          <table class="grid" id="grid">
-            <thead>
-              <tr id="gridHead"></tr>
-            </thead>
-            <tbody id="gridBody"></tbody>
-          </table>
-        </div>
-
-        <div class="legend">
-          <span><span class="dot open"></span> Open</span>
-          <span><span class="dot selected"></span> Selected</span>
-          <span><span class="dot booked"></span> Booked</span>
-          <span><span class="dot unavailable"></span> Unavailable</span>
-          <span><span class="dot past"></span> Past</span>
-        </div>
-        <p class="hint">Tap cells to build your booking. Selected slots are added below.</p>
+        <div class="day-list" id="dayList"></div>
       </div>
 
       <!-- Bottom action bar -->
@@ -133,7 +118,7 @@
         </form>
 
         <div class="success-box hidden" id="successBox">
-          <div class="success-icon">✓</div>
+          <div class="success-icon">&check;</div>
           <h3>You're on the list!</h3>
           <p>Your slot is held as <strong>Pending</strong>. We'll verify your payment
           screenshot and confirm your booking shortly.</p>

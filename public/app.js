@@ -1,16 +1,21 @@
 (function () {
-  let CONFIG = null;
-  let currentDate = todayStr();
+  const RANGE_LEN = 6;
 
-  // Selections persist while on the same date. Key: "courtId-hour"
-  const selectedSlots = new Map(); // key -> { courtId, hour }
+  let CONFIG = null;
+  let currentCourtId = null;
+  let rangeStart = todayDate();
+  let bookingsByDate = {}; // date -> { "courtId-hour": booking }
+
+  // Selections can span multiple courts and dates in one submission.
+  // Key: "courtId-date-hour"
+  const selectedSlots = new Map(); // key -> { courtId, date, hour }
 
   const el = (id) => document.getElementById(id);
-  const gridHead = el('gridHead');
-  const gridBody = el('gridBody');
-  const datePicker = el('datePicker');
-  const dateLabel = el('dateLabel');
-  const dateStrip = el('dateStrip');
+  const courtSelect = el('courtSelect');
+  const rangeLabel = el('rangeLabel');
+  const rangePrevBtn = el('rangePrevBtn');
+  const rangeNextBtn = el('rangeNextBtn');
+  const dayList = el('dayList');
   const bookingCard = el('bookingCard');
   const confirmPanel = el('confirmPanel');
   const modalSub = el('modalSub');
@@ -22,8 +27,16 @@
   const clearSelectionBtn = el('clearSelectionBtn');
   const bookSelectedBtn = el('bookSelectedBtn');
 
-  function todayStr() {
-    return fmtDate(new Date());
+  function todayDate() {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+
+  function addDays(date, n) {
+    const d = new Date(date);
+    d.setDate(d.getDate() + n);
+    return d;
   }
 
   function fmtDate(d) {
@@ -33,17 +46,16 @@
     return `${y}-${m}-${day}`;
   }
 
-  // Compact "2-3 PM" style label for a one-hour slot starting at `h` (24h).
-  function fmtSlot(h) {
-    const start = h % 12 === 0 ? 12 : h % 12;
-    const endHour = h + 1;
-    const end = endHour % 12 === 0 ? 12 : endHour % 12;
-    const startPeriod = h >= 12 ? 'PM' : 'AM';
-    const endPeriod = endHour >= 12 && endHour < 24 ? 'PM' : 'AM';
-    if (startPeriod === endPeriod) {
-      return `${start}-${end} ${endPeriod}`;
-    }
-    return `${start} ${startPeriod}-${end} ${endPeriod}`;
+  function fmtShort(d) {
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
+  // "01:00 PM" style label for a one-hour slot starting at `h` (24h).
+  function fmtTime(h) {
+    const period = h >= 12 && h < 24 ? 'PM' : 'AM';
+    let hour = h % 12;
+    if (hour === 0) hour = 12;
+    return `${String(hour).padStart(2, '0')}:00 ${period}`;
   }
 
   // "6 AM" style label for a single hour boundary (used for the venue meta row).
@@ -71,12 +83,16 @@
     el('venueCourtsMeta').textContent = `${CONFIG.courts.length} court${CONFIG.courts.length > 1 ? 's' : ''}`;
     el('venueHoursMeta').textContent = `${fmtHour(CONFIG.openHour)} – ${fmtHour(CONFIG.closeHour)}`;
     el('venuePrice').textContent = `₱${CONFIG.pricePerHour}`;
+
+    courtSelect.innerHTML = CONFIG.courts.map((c) => `<option value="${c.id}">${c.name}</option>`).join('');
+    currentCourtId = CONFIG.courts[0].id;
+    courtSelect.value = String(currentCourtId);
   }
 
-  function buildHead() {
-    gridHead.innerHTML =
-      '<th class="time-col">Time</th>' + CONFIG.courts.map((c) => `<th>${c.name}</th>`).join('');
-  }
+  courtSelect.addEventListener('change', () => {
+    currentCourtId = Number(courtSelect.value);
+    renderDays();
+  });
 
   function isPastSlot(dateStr, hour) {
     const now = new Date();
@@ -101,8 +117,8 @@
     bookSelectedBtn.disabled = false;
   }
 
-  function toggleSlot(courtId, hour) {
-    const key = `${courtId}-${hour}`;
+  function toggleSlot(courtId, date, hour) {
+    const key = `${courtId}-${date}-${hour}`;
     if (selectedSlots.has(key)) {
       selectedSlots.delete(key);
     } else {
@@ -110,136 +126,141 @@
         showToast(`You can select up to ${CONFIG.maxSlotsPerBooking} slots at once.`, 'error');
         return;
       }
-      selectedSlots.set(key, { courtId, hour });
+      selectedSlots.set(key, { courtId, date, hour });
     }
-    if (renderGrid.lastData) renderGrid(renderGrid.lastData);
+    renderDays();
     updateSummaryBar();
   }
 
   clearSelectionBtn.addEventListener('click', () => {
     selectedSlots.clear();
     updateSummaryBar();
-    if (renderGrid.lastData) renderGrid(renderGrid.lastData);
+    renderDays();
   });
 
   bookSelectedBtn.addEventListener('click', () => openModal());
 
-  function buildDateStrip() {
-    dateStrip.innerHTML = '';
-    const today = new Date();
-    for (let i = 0; i < 14; i++) {
-      const d = new Date(today);
-      d.setDate(d.getDate() + i);
-      const dateStr = fmtDate(d);
+  function currentRangeDates() {
+    const dates = [];
+    for (let i = 0; i < RANGE_LEN; i++) dates.push(addDays(rangeStart, i));
+    return dates;
+  }
 
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      let cls = 'date-chip';
-      if (dateStr === currentDate) cls += ' active';
-      else if (i === 0) cls += ' today';
-      chip.className = cls;
-      chip.innerHTML = `<span class="dow">${d.toLocaleDateString(undefined, { weekday: 'short' })}</span><span class="dom">${d.getDate()}</span>`;
-      chip.addEventListener('click', () => {
-        if (dateStr === currentDate) return;
-        currentDate = dateStr;
-        clearSelectionOnDateChange();
-        loadGrid();
+  function updateRangeLabel() {
+    const dates = currentRangeDates();
+    rangeLabel.textContent = `${fmtShort(dates[0])} - ${fmtShort(dates[dates.length - 1])}`;
+    rangePrevBtn.disabled = fmtDate(rangeStart) <= fmtDate(todayDate());
+  }
+
+  rangePrevBtn.addEventListener('click', () => {
+    const candidate = addDays(rangeStart, -RANGE_LEN);
+    rangeStart = candidate < todayDate() ? todayDate() : candidate;
+    loadSchedule();
+  });
+
+  rangeNextBtn.addEventListener('click', () => {
+    rangeStart = addDays(rangeStart, RANGE_LEN);
+    loadSchedule();
+  });
+
+  async function loadSchedule() {
+    updateRangeLabel();
+    const dates = currentRangeDates();
+    const results = await Promise.all(
+      dates.map((d) => fetch(`/api/bookings?date=${fmtDate(d)}`).then((r) => r.json()))
+    );
+    bookingsByDate = {};
+    dates.forEach((d, i) => {
+      const map = {};
+      (results[i].bookings || []).forEach((b) => {
+        map[`${b.courtId}-${b.hour}`] = b;
       });
-      dateStrip.appendChild(chip);
-    }
+      bookingsByDate[fmtDate(d)] = map;
+    });
+    renderDays();
   }
 
-  async function loadGrid() {
-    dateLabel.textContent = new Date(currentDate + 'T00:00:00').toLocaleDateString(undefined, {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric',
-    });
-    datePicker.value = currentDate;
-    buildDateStrip();
+  function renderDays() {
+    dayList.innerHTML = '';
+    const dates = currentRangeDates();
 
-    const res = await fetch(`/api/bookings?date=${currentDate}`);
-    const data = await res.json();
-    const bookingMap = {}; // key: courtId-hour
-    (data.bookings || []).forEach((b) => {
-      bookingMap[`${b.courtId}-${b.hour}`] = b;
-    });
-    renderGrid(bookingMap);
-  }
+    dates.forEach((d, i) => {
+      const dateStr = fmtDate(d);
+      const dayMap = bookingsByDate[dateStr] || {};
 
-  function renderGrid(bookingMap) {
-    renderGrid.lastData = bookingMap;
+      const hours = CONFIG.hours.filter((hour) => !isPastSlot(dateStr, hour));
 
-    gridBody.innerHTML = '';
-    CONFIG.hours.forEach((hour) => {
-      const tr = document.createElement('tr');
-      const timeTd = document.createElement('td');
-      timeTd.className = 'hour-label';
-      timeTd.textContent = fmtSlot(hour);
-      tr.appendChild(timeTd);
+      const section = document.createElement('div');
+      section.className = 'day-section';
 
-      CONFIG.courts.forEach((court) => {
-        const key = `${court.id}-${hour}`;
-        const booking = bookingMap[key];
-        const past = isPastSlot(currentDate, hour);
-        const isSelected = selectedSlots.has(key);
+      const header = document.createElement('div');
+      header.className = 'day-header';
+      const dayLabel = i === 0
+        ? `Today, ${fmtShort(d)}`
+        : `${d.toLocaleDateString(undefined, { weekday: 'short' })}, ${fmtShort(d)}`;
+      const h3 = document.createElement('h3');
+      h3.textContent = dayLabel;
+      header.appendChild(h3);
 
-        const td = document.createElement('td');
-        td.className = 'cell-wrap';
+      if (hours.length === 0) {
+        const empty = document.createElement('span');
+        empty.className = 'day-empty';
+        empty.textContent = 'No availability';
+        header.appendChild(empty);
+        section.appendChild(header);
+        dayList.appendChild(section);
+        return;
+      }
+
+      section.appendChild(header);
+
+      const pills = document.createElement('div');
+      pills.className = 'day-pills';
+
+      hours.forEach((hour) => {
+        const key = `${currentCourtId}-${hour}`;
+        const booking = dayMap[key];
+        const selKey = `${currentCourtId}-${dateStr}-${hour}`;
+        const isSelected = selectedSlots.has(selKey);
 
         const btn = document.createElement('button');
         btn.type = 'button';
 
         if (booking) {
-          if (booking.status === 'pending') {
-            btn.className = 'cell-btn pending-cell';
-            btn.innerHTML = `<span>PENDING</span>`;
-          } else {
-            btn.className = 'cell-btn booked';
-            btn.innerHTML = `<span>Booked</span>`;
-          }
-          btn.disabled = true;
-        } else if (past) {
-          btn.className = 'cell-btn past';
-          btn.innerHTML = `<span>Past</span>`;
+          btn.className = 'pill unavailable';
           btn.disabled = true;
         } else if (isSelected) {
-          btn.className = 'cell-btn selected';
-          btn.innerHTML = `<span>Selected</span>`;
-          btn.addEventListener('click', () => toggleSlot(court.id, hour));
+          btn.className = 'pill selected';
+          btn.addEventListener('click', () => toggleSlot(currentCourtId, dateStr, hour));
         } else {
-          btn.className = 'cell-btn open';
-          btn.innerHTML = `<span>OPEN</span><span class="price">₱${CONFIG.pricePerHour}</span>`;
-          btn.addEventListener('click', () => toggleSlot(court.id, hour));
+          btn.className = 'pill';
+          btn.addEventListener('click', () => toggleSlot(currentCourtId, dateStr, hour));
         }
-
-        td.appendChild(btn);
-        tr.appendChild(td);
+        btn.textContent = fmtTime(hour);
+        pills.appendChild(btn);
       });
 
-      gridBody.appendChild(tr);
+      section.appendChild(pills);
+      dayList.appendChild(section);
     });
-  }
-
-  function escapeHtml(str) {
-    return String(str).replace(/[&<>"']/g, (c) => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-    }[c]));
   }
 
   function openModal() {
     if (selectedSlots.size === 0) return;
 
-    const slots = Array.from(selectedSlots.values()).sort((a, b) => a.courtId - b.courtId || a.hour - b.hour);
-    modalSub.textContent = `${slots.length} slot${slots.length > 1 ? 's' : ''} · ${currentDate}`;
+    const slots = Array.from(selectedSlots.values()).sort(
+      (a, b) => a.date.localeCompare(b.date) || a.courtId - b.courtId || a.hour - b.hour
+    );
+    modalSub.textContent = `${slots.length} slot${slots.length > 1 ? 's' : ''} selected`;
 
     const list = el('selectedSlotsList');
     list.innerHTML = '';
     slots.forEach((s) => {
       const row = document.createElement('div');
       row.className = 'selected-slot-row';
+      const shortDate = fmtShort(new Date(s.date + 'T00:00:00'));
       row.innerHTML = `
-        <span class="slot-info">${fmtSlot(s.hour)}<span class="slot-court">${courtName(s.courtId)}</span></span>
+        <span class="slot-info"><span class="slot-date">${shortDate}</span>${fmtTime(s.hour)}<span class="slot-court">${courtName(s.courtId)}</span></span>
         <span class="slot-price">₱${CONFIG.pricePerHour}</span>
       `;
       list.appendChild(row);
@@ -275,7 +296,7 @@
     closeModal();
     selectedSlots.clear();
     updateSummaryBar();
-    await loadGrid();
+    await loadSchedule();
   });
 
   el('screenshot').addEventListener('change', () => {
@@ -313,7 +334,7 @@
     const slots = Array.from(selectedSlots.values()).map((s) => ({
       courtId: s.courtId,
       hour: s.hour,
-      date: currentDate,
+      date: s.date,
     }));
 
     const fd = new FormData();
@@ -333,7 +354,7 @@
         if (data.code === 'TAKEN') {
           selectedSlots.clear();
           updateSummaryBar();
-          await loadGrid();
+          await loadSchedule();
         }
         return;
       }
@@ -348,34 +369,9 @@
     }
   });
 
-  el('calBtn').addEventListener('click', () => {
-    if (datePicker.showPicker) {
-      try { datePicker.showPicker(); } catch (e) { datePicker.focus(); }
-    } else {
-      datePicker.focus();
-    }
-  });
-  datePicker.addEventListener('change', () => {
-    if (datePicker.value) {
-      currentDate = datePicker.value;
-      clearSelectionOnDateChange();
-      loadGrid();
-    }
-  });
-
-  function clearSelectionOnDateChange() {
-    if (selectedSlots.size > 0) {
-      selectedSlots.clear();
-      updateSummaryBar();
-      showToast('Date changed — selection cleared.', '');
-    }
-  }
-
-
   (async function init() {
     await loadConfig();
-    buildHead();
     updateSummaryBar();
-    await loadGrid();
+    await loadSchedule();
   })();
 })();
