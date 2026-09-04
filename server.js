@@ -3,6 +3,7 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const { Readable } = require('stream');
 const multer = require('multer');
 const store = require('./lib/store');
 
@@ -56,8 +57,12 @@ function randomFilename(file) {
 async function saveUploadedFile(file) {
   if (!USE_BLOB) return file.filename; // multer already wrote it to disk
   const filename = randomFilename(file);
+  // Private access: the blob is only ever readable by a request carrying
+  // this project's Blob credentials (via the SDK), never a public URL --
+  // see the admin screenshot route below, which is the only thing that
+  // ever reads it back.
   await blobApi.put(filename, file.buffer, {
-    access: 'public',
+    access: 'private',
     addRandomSuffix: false,
     contentType: file.mimetype,
   });
@@ -68,9 +73,7 @@ async function deleteUploadedFile(filename) {
   if (!filename) return;
   if (USE_BLOB) {
     try {
-      const { blobs } = await blobApi.list({ prefix: filename, limit: 1 });
-      const match = blobs.find((b) => b.pathname === filename);
-      if (match) await blobApi.del(match.url);
+      await blobApi.del(filename);
     } catch (e) {
       // Best-effort cleanup only -- don't fail the request over it.
     }
@@ -204,14 +207,11 @@ app.get('/api/admin/screenshots/:filename', requireAdmin, async (req, res) => {
   const filename = path.basename(req.params.filename); // prevent path traversal
   if (USE_BLOB) {
     try {
-      const { blobs } = await blobApi.list({ prefix: filename, limit: 1 });
-      const match = blobs.find((b) => b.pathname === filename);
-      if (!match) return res.status(404).json({ error: 'Not found' });
-      const blobRes = await fetch(match.url);
-      if (!blobRes.ok) return res.status(404).json({ error: 'Not found' });
-      res.setHeader('Content-Type', blobRes.headers.get('content-type') || 'application/octet-stream');
-      const buf = Buffer.from(await blobRes.arrayBuffer());
-      res.send(buf);
+      const result = await blobApi.get(filename, { access: 'private' });
+      if (!result || result.statusCode !== 200) return res.status(404).json({ error: 'Not found' });
+      res.setHeader('Content-Type', result.blob.contentType || 'application/octet-stream');
+      res.setHeader('Cache-Control', 'private, no-store');
+      Readable.fromWeb(result.stream).pipe(res);
     } catch (err) {
       res.status(500).json({ error: 'Could not load screenshot.' });
     }

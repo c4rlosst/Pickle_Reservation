@@ -72,9 +72,12 @@ without the two integrations below, the app crashes on startup instead.
 1. **Push this repo to Vercel** (import the GitHub repo, or `vercel deploy`).
    `vercel.json` and `api/index.js` are already set up to run the whole
    Express app as one serverless function.
-2. **Add screenshot storage:** in the Vercel project, go to Storage → Browse
-   Marketplace → add **Blob**. This sets `BLOB_READ_WRITE_TOKEN`
-   automatically; no code changes needed.
+2. **Add screenshot storage:** in the Vercel project, go to Storage → Create
+   Database → **Blob**, and set access to **Private** (payment screenshots
+   are sensitive -- private means every read requires this project's
+   credentials, unlike public blobs which are readable by anyone with the
+   URL). This sets `BLOB_READ_WRITE_TOKEN` automatically; no code changes
+   needed.
 3. **Add a bookings database:** in the same Storage tab, add a **Redis**
    integration (e.g. Upstash Redis) from the Marketplace. This sets
    `KV_REST_API_URL` / `KV_REST_API_TOKEN` automatically.
