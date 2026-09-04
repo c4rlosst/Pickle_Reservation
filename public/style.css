@@ -126,6 +126,28 @@ main {
 
 .dot-sep { opacity: 0.6; }
 
+.venue-location-link {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--green-strong);
+  text-decoration: none;
+  transition: color 150ms ease, opacity 150ms ease;
+}
+
+.venue-location-link:hover { color: var(--green); text-decoration: underline; }
+
+.location-pin-icon {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  color: var(--green-strong);
+}
+
 .venue-price { text-align: right; flex: none; }
 
 .venue-price-label {

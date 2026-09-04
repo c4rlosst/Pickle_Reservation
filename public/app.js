@@ -97,6 +97,14 @@
     el('venueHoursMeta').textContent = `${fmtHour(CONFIG.openHour)} – ${fmtHour(CONFIG.closeHour)}`;
     el('venuePrice').textContent = `₱${CONFIG.pricePerHour}`;
 
+    const locationLink = el('venueLocationLink');
+    if (CONFIG.locationMapsUrl) {
+      locationLink.href = CONFIG.locationMapsUrl;
+      locationLink.classList.remove('hidden');
+    } else {
+      locationLink.classList.add('hidden');
+    }
+
     courtSelect.innerHTML = CONFIG.courts.map((c) => `<option value="${c.id}">${c.name}</option>`).join('');
     currentCourtId = CONFIG.courts[0].id;
     courtSelect.value = String(currentCourtId);
