@@ -208,8 +208,8 @@ table.grid tr:last-child td { border-bottom: none; }
 
 table.grid thead th {
   background: var(--header-bg);
-  padding: 10px 8px;
-  font-size: 0.78rem;
+  padding: 9px 8px;
+  font-size: 0.76rem;
   font-weight: 800;
   color: var(--ink);
   text-transform: uppercase;
@@ -219,7 +219,7 @@ table.grid thead th {
 table.grid thead th.time-col { text-align: left; padding-left: 14px; }
 
 table.grid td.hour-label {
-  padding: 0 10px;
+  padding: 0 14px;
   font-size: 0.82rem;
   font-weight: 700;
   color: var(--ink);
@@ -228,13 +228,13 @@ table.grid td.hour-label {
   font-variant-numeric: tabular-nums;
 }
 
-table.grid td.cell-wrap { padding: 6px; }
+table.grid td.cell-wrap { padding: 5px 8px; }
 
 /* --- Slot cell buttons --- */
 .cell-btn {
   width: 100%;
   min-width: 78px;
-  height: 54px;
+  height: 46px;
   border-radius: var(--radius-sm);
   border: 1.5px solid var(--border);
   background: var(--card-bg);
