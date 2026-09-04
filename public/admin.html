@@ -239,6 +239,8 @@
      table-layout: fixed is great on desktop but has no room to give
      on a phone; below this width each row becomes its own card with
      a label above every value instead of a truncated column. */
+  .card-toggle-btn { display: none; }
+
   @media (max-width: 720px) {
     main.admin { padding-left: 12px; padding-right: 12px; }
     header.site, .site-divider { padding-left: 12px; padding-right: 12px; }
@@ -257,8 +259,15 @@
     table.list colgroup { display: none; }
     table.list thead { display: none; }
     table.list tbody { display: block; }
+
+    /* Card per booking. Fields pair up two-to-a-row (Date+Time,
+       Court+Name, ...) instead of stacking one per line, and the
+       verification-only fields (Contact, Proof, Notes) start hidden
+       behind "Show details" so the card reads at a glance. */
     table.list tr {
-      display: block;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      align-items: stretch;
       background: var(--card-bg);
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
@@ -277,6 +286,12 @@
     }
     table.list tr td:last-child { border-bottom: none; }
     table.list td:empty { display: none; }
+    table.list td[data-collapsible] { display: none; }
+    table.list tr.expanded td[data-collapsible] { display: block; }
+    table.list tr.expanded td[data-collapsible]:empty { display: none; }
+    table.list td[data-label="Notes"],
+    table.list td[data-label="Status"],
+    table.list td[data-label="Actions"] { grid-column: 1 / -1; }
     table.list td::before {
       content: attr(data-label);
       display: block;
@@ -287,10 +302,26 @@
       color: var(--muted);
       margin-bottom: 4px;
     }
-    table.list td[data-label="Proof"] { display: flex; align-items: center; gap: 10px; }
+    /* Proof needs flex (thumb + label) only once it's actually shown;
+       must win the specificity tie against the generic collapsible
+       block-display rule above, so it's declared after it. */
+    table.list tr.expanded td[data-label="Proof"] { display: flex; align-items: center; gap: 10px; }
     table.list td[data-label="Proof"]::before { margin-bottom: 0; }
+
     .row-actions { flex-direction: column; }
     .row-actions button { width: 100%; padding: 10px 14px; font-size: 0.85rem; }
+    .row-actions button.card-toggle-btn {
+      display: block;
+      background: none;
+      border: none;
+      color: var(--green-strong);
+      font-weight: 700;
+      font-size: 0.82rem;
+      padding: 2px 0 10px;
+      text-align: left;
+      cursor: pointer;
+    }
+    .row-actions button.card-toggle-btn:hover { text-decoration: underline; }
   }
 </style>
 </head>

@@ -222,6 +222,18 @@
     });
   }
 
+  function addCardToggle(tr, actionsDiv) {
+    const toggleBtn = document.createElement('button');
+    toggleBtn.type = 'button';
+    toggleBtn.className = 'card-toggle-btn';
+    toggleBtn.textContent = 'Show details';
+    toggleBtn.addEventListener('click', () => {
+      const expanded = tr.classList.toggle('expanded');
+      toggleBtn.textContent = expanded ? 'Hide details' : 'Show details';
+    });
+    actionsDiv.insertBefore(toggleBtn, actionsDiv.firstChild);
+  }
+
   function renderGroupRow(tbody, group) {
     const tr = document.createElement('tr');
     const first = group[0];
@@ -235,9 +247,9 @@
       <td data-label="Time">${slotsHtml}</td>
       <td data-label="Court">${group.length} slot${group.length > 1 ? 's' : ''}</td>
       <td data-label="Name">${escapeHtml(first.name)}<div class="muted">₱${totalPrice} total</div></td>
-      <td data-label="Contact">${escapeHtml(first.contact)}</td>
-      <td class="proof-cell" data-label="Proof"></td>
-      <td data-label="Notes">${notesCellHtml(first.notes || '', first.notes || '')}</td>
+      <td data-label="Contact" data-collapsible="true">${escapeHtml(first.contact)}</td>
+      <td class="proof-cell" data-label="Proof" data-collapsible="true"></td>
+      <td data-label="Notes" data-collapsible="true">${notesCellHtml(first.notes || '', first.notes || '')}</td>
       <td data-label="Status"><span class="status-badge status-pending">pending (${group.length})</span></td>
       <td data-label="Actions"><div class="row-actions"></div></td>
     `;
@@ -258,6 +270,7 @@
     rejectBtn.addEventListener('click', () => rejectGroup(first.groupId));
     actionsTd.appendChild(rejectBtn);
 
+    addCardToggle(tr, actionsTd);
     tbody.appendChild(tr);
   }
 
@@ -269,9 +282,9 @@
       <td data-label="Time">${fmtHour(b.hour)}</td>
       <td data-label="Court">${courtName(b.courtId)}</td>
       <td data-label="Name">${escapeHtml(b.name)}${priceLabel ? `<div class="muted">${priceLabel}</div>` : ''}</td>
-      <td data-label="Contact">${escapeHtml(b.contact)}</td>
-      <td class="proof-cell" data-label="Proof"></td>
-      <td data-label="Notes">${(() => {
+      <td data-label="Contact" data-collapsible="true">${escapeHtml(b.contact)}</td>
+      <td class="proof-cell" data-label="Proof" data-collapsible="true"></td>
+      <td data-label="Notes" data-collapsible="true">${(() => {
         const parts = [];
         if (b.notes) parts.push(b.notes);
         if (b.rejectReason) parts.push(`Reason: ${b.rejectReason}`);
@@ -312,6 +325,7 @@
     deleteBtn.addEventListener('click', () => deleteBooking(b.id));
     actionsTd.appendChild(deleteBtn);
 
+    addCardToggle(tr, actionsTd);
     tbody.appendChild(tr);
   }
 
