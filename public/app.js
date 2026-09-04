@@ -1,12 +1,13 @@
 (function () {
   let CONFIG = null;
-  let selected = null; // { courtId, hour }
   let currentDate = todayStr();
-  let selectedCourtId = null;
+
+  // Selections persist while on the same date. Key: "courtId-hour"
+  const selectedSlots = new Map(); // key -> { courtId, hour }
 
   const el = (id) => document.getElementById(id);
-  const courtTabs = el('courtTabs');
-  const slotGrid = el('slotGrid');
+  const gridHead = el('gridHead');
+  const gridBody = el('gridBody');
   const datePicker = el('datePicker');
   const dateLabel = el('dateLabel');
   const overlay = el('overlay');
@@ -15,6 +16,8 @@
   const formError = el('formError');
   const toast = el('toast');
   const successBox = el('successBox');
+  const summaryBar = el('summaryBar');
+  const summaryText = el('summaryText');
 
   function todayStr() {
     return fmtDate(new Date());
@@ -32,15 +35,17 @@
     const start = h % 12 === 0 ? 12 : h % 12;
     const endHour = h + 1;
     const end = endHour % 12 === 0 ? 12 : endHour % 12;
-    const period = endHour >= 12 && endHour < 24 ? 'PM' : 'AM';
-    // Use the period of the end of the slot for the whole label, unless it
-    // crosses noon/midnight, in which case show both.
     const startPeriod = h >= 12 ? 'PM' : 'AM';
     const endPeriod = endHour >= 12 && endHour < 24 ? 'PM' : 'AM';
     if (startPeriod === endPeriod) {
       return `${start}-${end} ${endPeriod}`;
     }
     return `${start} ${startPeriod}-${end} ${endPeriod}`;
+  }
+
+  function courtName(courtId) {
+    const c = CONFIG.courts.find((c) => c.id === courtId);
+    return c ? c.name : `Court ${courtId}`;
   }
 
   function showToast(msg, type) {
@@ -52,22 +57,11 @@
   async function loadConfig() {
     const res = await fetch('/api/config');
     CONFIG = await res.json();
-    if (!selectedCourtId) selectedCourtId = CONFIG.courts[0].id;
   }
 
-  function buildCourtTabs() {
-    courtTabs.innerHTML = '';
-    CONFIG.courts.forEach((court) => {
-      const btn = document.createElement('button');
-      btn.className = 'court-tab' + (court.id === selectedCourtId ? ' active' : '');
-      btn.textContent = court.name;
-      btn.addEventListener('click', () => {
-        selectedCourtId = court.id;
-        buildCourtTabs();
-        loadGrid();
-      });
-      courtTabs.appendChild(btn);
-    });
+  function buildHead() {
+    gridHead.innerHTML =
+      '<th class="time-col">Time</th>' + CONFIG.courts.map((c) => `<th>${c.name}</th>`).join('');
   }
 
   function isPastSlot(dateStr, hour) {
@@ -77,9 +71,43 @@
     return slotTime.getTime() < now.getTime();
   }
 
+  function updateSummaryBar() {
+    const n = selectedSlots.size;
+    if (n === 0) {
+      summaryBar.classList.add('hidden');
+      return;
+    }
+    const total = n * CONFIG.pricePerHour;
+    summaryText.textContent = `${n} slot${n > 1 ? 's' : ''} selected · ₱${total} total`;
+    summaryBar.classList.remove('hidden');
+  }
+
+  function toggleSlot(courtId, hour) {
+    const key = `${courtId}-${hour}`;
+    if (selectedSlots.has(key)) {
+      selectedSlots.delete(key);
+    } else {
+      if (selectedSlots.size >= CONFIG.maxSlotsPerBooking) {
+        showToast(`You can select up to ${CONFIG.maxSlotsPerBooking} slots at once.`, 'error');
+        return;
+      }
+      selectedSlots.set(key, { courtId, hour });
+    }
+    if (renderGrid.lastData) renderGrid(renderGrid.lastData);
+    updateSummaryBar();
+  }
+
+  el('clearSelectionBtn').addEventListener('click', () => {
+    selectedSlots.clear();
+    updateSummaryBar();
+    if (renderGrid.lastData) renderGrid(renderGrid.lastData);
+  });
+
+  el('bookSelectedBtn').addEventListener('click', () => openModal());
+
   async function loadGrid() {
     dateLabel.textContent = new Date(currentDate + 'T00:00:00').toLocaleDateString(undefined, {
-      weekday: 'long',
+      weekday: 'short',
       month: 'short',
       day: 'numeric',
     });
@@ -91,63 +119,60 @@
     (data.bookings || []).forEach((b) => {
       bookingMap[`${b.courtId}-${b.hour}`] = b;
     });
+    renderGrid(bookingMap);
+  }
 
-    const court = CONFIG.courts.find((c) => c.id === selectedCourtId);
+  function renderGrid(bookingMap) {
+    renderGrid.lastData = bookingMap;
 
-    slotGrid.innerHTML = '';
+    gridBody.innerHTML = '';
     CONFIG.hours.forEach((hour) => {
-      const key = `${selectedCourtId}-${hour}`;
-      const booking = bookingMap[key];
-      const past = isPastSlot(currentDate, hour);
+      const tr = document.createElement('tr');
+      const timeTd = document.createElement('td');
+      timeTd.className = 'hour-label';
+      timeTd.textContent = fmtSlot(hour);
+      tr.appendChild(timeTd);
 
-      const card = document.createElement('div');
-      let cls = 'slot-card';
-      if (booking) {
-        cls += booking.status === 'pending' ? ' pending-card' : ' taken';
-      } else if (past) {
-        cls += ' past';
-      } else {
-        cls += ' available';
-      }
-      card.className = cls;
+      CONFIG.courts.forEach((court) => {
+        const key = `${court.id}-${hour}`;
+        const booking = bookingMap[key];
+        const past = isPastSlot(currentDate, hour);
+        const isSelected = selectedSlots.has(key);
 
-      const timeEl = document.createElement('div');
-      timeEl.className = 'time';
-      timeEl.textContent = fmtSlot(hour);
-      card.appendChild(timeEl);
+        const td = document.createElement('td');
+        td.className = 'cell-wrap';
 
-      if (booking) {
-        if (booking.name) {
-          const bookerEl = document.createElement('div');
-          bookerEl.className = 'booker';
-          bookerEl.innerHTML = `<span class="icon">👤</span> ${escapeHtml(booking.name)}`;
-          card.appendChild(bookerEl);
-        }
-        const badges = document.createElement('div');
-        badges.className = 'badges';
-        if (booking.status === 'confirmed') {
-          badges.innerHTML = '<span class="badge verified">✓ VERIFIED</span><span class="badge booked">BOOKED</span>';
-        } else if (booking.status === 'pending') {
-          badges.innerHTML = '<span class="badge pending">PENDING REVIEW</span>';
+        const btn = document.createElement('button');
+        btn.type = 'button';
+
+        if (booking) {
+          if (booking.status === 'pending') {
+            btn.className = 'cell-btn pending-cell';
+            btn.innerHTML = `<span>PENDING</span>`;
+          } else {
+            btn.className = 'cell-btn booked';
+            btn.innerHTML = `<span>Booked</span>`;
+          }
+          btn.disabled = true;
+        } else if (past) {
+          btn.className = 'cell-btn past';
+          btn.innerHTML = `<span>Past</span>`;
+          btn.disabled = true;
+        } else if (isSelected) {
+          btn.className = 'cell-btn selected';
+          btn.innerHTML = `<span>Selected</span>`;
+          btn.addEventListener('click', () => toggleSlot(court.id, hour));
         } else {
-          badges.innerHTML = '<span class="badge booked">UNAVAILABLE</span>';
+          btn.className = 'cell-btn open';
+          btn.innerHTML = `<span>OPEN</span><span class="price">₱${CONFIG.pricePerHour}</span>`;
+          btn.addEventListener('click', () => toggleSlot(court.id, hour));
         }
-        card.appendChild(badges);
-      } else if (past) {
-        const statusEl = document.createElement('div');
-        statusEl.className = 'status-line';
-        statusEl.style.color = 'var(--muted)';
-        statusEl.textContent = 'Past';
-        card.appendChild(statusEl);
-      } else {
-        const statusEl = document.createElement('div');
-        statusEl.className = 'status-line';
-        statusEl.textContent = `Available · ₱${CONFIG.pricePerHour}`;
-        card.appendChild(statusEl);
-        card.addEventListener('click', () => openModal(court, hour));
-      }
 
-      slotGrid.appendChild(card);
+        td.appendChild(btn);
+        tr.appendChild(td);
+      });
+
+      gridBody.appendChild(tr);
     });
   }
 
@@ -157,10 +182,29 @@
     }[c]));
   }
 
-  function openModal(court, hour) {
-    selected = { courtId: court.id, hour };
-    modalSub.textContent = `${court.name} · ${fmtSlot(hour)} · ${currentDate}`;
-    el('paymentAmount').textContent = `₱${CONFIG.pricePerHour} for this slot`;
+  function openModal() {
+    if (selectedSlots.size === 0) return;
+
+    const slots = Array.from(selectedSlots.values()).sort((a, b) => a.courtId - b.courtId || a.hour - b.hour);
+    modalSub.textContent = `${slots.length} slot${slots.length > 1 ? 's' : ''} · ${currentDate}`;
+
+    const list = el('selectedSlotsList');
+    list.innerHTML = '';
+    slots.forEach((s) => {
+      const row = document.createElement('div');
+      row.className = 'selected-slot-row';
+      row.innerHTML = `
+        <span class="slot-info">${fmtSlot(s.hour)}<span class="slot-court">${courtName(s.courtId)}</span></span>
+        <span class="slot-price">₱${CONFIG.pricePerHour}</span>
+      `;
+      list.appendChild(row);
+    });
+    const totalRow = document.createElement('div');
+    totalRow.className = 'selected-slots-total';
+    totalRow.innerHTML = `<span>Total</span><span>₱${slots.length * CONFIG.pricePerHour}</span>`;
+    list.appendChild(totalRow);
+
+    el('paymentAmount').textContent = `₱${slots.length * CONFIG.pricePerHour} for ${slots.length} slot${slots.length > 1 ? 's' : ''}`;
     el('paymentInstructions').textContent = CONFIG.paymentInstructions;
     formError.textContent = '';
     bookingForm.reset();
@@ -174,12 +218,13 @@
 
   function closeModal() {
     overlay.classList.add('hidden');
-    selected = null;
   }
 
   el('cancelBtn').addEventListener('click', closeModal);
   el('closeSuccessBtn').addEventListener('click', async () => {
     closeModal();
+    selectedSlots.clear();
+    updateSummaryBar();
     await loadGrid();
   });
   overlay.addEventListener('click', (e) => {
@@ -204,7 +249,7 @@
 
   bookingForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (!selected) return;
+    if (selectedSlots.size === 0) return;
     formError.textContent = '';
 
     const fileInput = el('screenshot');
@@ -217,10 +262,14 @@
     submitBtn.disabled = true;
     submitBtn.textContent = 'Submitting…';
 
+    const slots = Array.from(selectedSlots.values()).map((s) => ({
+      courtId: s.courtId,
+      hour: s.hour,
+      date: currentDate,
+    }));
+
     const fd = new FormData();
-    fd.append('courtId', selected.courtId);
-    fd.append('date', currentDate);
-    fd.append('hour', selected.hour);
+    fd.append('slots', JSON.stringify(slots));
     fd.append('name', el('name').value);
     fd.append('contact', el('contact').value);
     fd.append('notes', el('notes').value);
@@ -234,6 +283,8 @@
         submitBtn.disabled = false;
         submitBtn.textContent = 'Submit for review';
         if (data.code === 'TAKEN') {
+          selectedSlots.clear();
+          updateSummaryBar();
           await loadGrid();
         }
         return;
@@ -249,27 +300,40 @@
 
   el('prevDay').addEventListener('click', () => shiftDay(-1));
   el('nextDay').addEventListener('click', () => shiftDay(1));
-  el('todayBtn').addEventListener('click', () => {
-    currentDate = todayStr();
-    loadGrid();
+  el('calBtn').addEventListener('click', () => {
+    if (datePicker.showPicker) {
+      try { datePicker.showPicker(); } catch (e) { datePicker.focus(); }
+    } else {
+      datePicker.focus();
+    }
   });
   datePicker.addEventListener('change', () => {
     if (datePicker.value) {
       currentDate = datePicker.value;
+      clearSelectionOnDateChange();
       loadGrid();
     }
   });
+
+  function clearSelectionOnDateChange() {
+    if (selectedSlots.size > 0) {
+      selectedSlots.clear();
+      updateSummaryBar();
+      showToast('Date changed — selection cleared.', '');
+    }
+  }
 
   function shiftDay(delta) {
     const d = new Date(currentDate + 'T00:00:00');
     d.setDate(d.getDate() + delta);
     currentDate = fmtDate(d);
+    clearSelectionOnDateChange();
     loadGrid();
   }
 
   (async function init() {
     await loadConfig();
-    buildCourtTabs();
+    buildHead();
     await loadGrid();
   })();
 })();

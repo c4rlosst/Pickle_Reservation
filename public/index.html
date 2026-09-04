@@ -9,27 +9,47 @@
 <body>
 <header class="site">
   <h1>🏓 FORA Pickleball Courts</h1>
-  <p>Book Court 1, 2, or 3 by the hour</p>
 </header>
 
 <main>
-  <div class="controls">
-    <button id="prevDay">&larr; Prev</button>
-    <input type="date" id="datePicker" />
-    <span id="dateLabel"></span>
-    <button id="nextDay">Next &rarr;</button>
-    <button id="todayBtn">Today</button>
+  <h2 class="section-title">Choose your slots</h2>
+
+  <div class="date-nav">
+    <button class="date-nav-btn" id="prevDay" aria-label="Previous day">&lsaquo;</button>
+    <div class="date-nav-current">
+      <span id="dateLabel"></span>
+      <button class="cal-btn" id="calBtn" aria-label="Pick a date">📅</button>
+      <input type="date" id="datePicker" class="visually-hidden-date" />
+    </div>
+    <button class="date-nav-btn" id="nextDay" aria-label="Next day">&rsaquo;</button>
   </div>
 
-  <div class="court-tabs" id="courtTabs"></div>
+  <div class="grid-wrap">
+    <table class="grid" id="grid">
+      <thead>
+        <tr id="gridHead"></tr>
+      </thead>
+      <tbody id="gridBody"></tbody>
+    </table>
+  </div>
 
   <div class="legend">
-    <span><span class="swatch free"></span> Available</span>
-    <span><span class="swatch pending"></span> Pending review</span>
-    <span><span class="swatch taken"></span> Booked</span>
+    <span><span class="dot open"></span> Open</span>
+    <span><span class="dot selected"></span> Selected</span>
+    <span><span class="dot booked"></span> Booked</span>
+    <span><span class="dot unavailable"></span> Unavailable</span>
+    <span><span class="dot past"></span> Past</span>
   </div>
+  <p class="hint">Tap cells to build your booking. Selected slots are added to the summary below.</p>
 
-  <div class="slot-grid" id="slotGrid"></div>
+  <!-- Selection summary -->
+  <div class="summary-box hidden" id="summaryBar">
+    <div class="summary-text" id="summaryText"></div>
+    <div class="summary-actions">
+      <button type="button" class="btn ghost" id="clearSelectionBtn">Clear</button>
+      <button type="button" class="btn primary" id="bookSelectedBtn">Book selected →</button>
+    </div>
+  </div>
 </main>
 
 <footer>
@@ -39,8 +59,10 @@
 <!-- Booking modal -->
 <div class="overlay hidden" id="overlay">
   <div class="modal">
-    <h2>Book this slot</h2>
+    <h2>Confirm your selection</h2>
     <p class="sub" id="modalSub"></p>
+
+    <div class="selected-slots-list" id="selectedSlotsList"></div>
 
     <div class="payment-box">
       <div class="payment-amount" id="paymentAmount"></div>

@@ -51,6 +51,7 @@ app.get('/api/config', (req, res) => {
     pricePerHour: store.PRICE_PER_HOUR,
     currency: store.CURRENCY,
     paymentInstructions: store.PAYMENT_INSTRUCTIONS,
+    maxSlotsPerBooking: store.MAX_SLOTS_PER_BOOKING,
   });
 });
 
@@ -75,31 +76,40 @@ app.post('/api/bookings', (req, res) => {
     if (uploadErr) {
       return res.status(400).json({ error: uploadErr.message, code: 'INVALID' });
     }
-    const { courtId, date, hour, name, contact, notes } = req.body || {};
+    const { name, contact, notes } = req.body || {};
     try {
       if (!req.file) {
         const err = new Error('A payment screenshot is required.');
         err.code = 'INVALID';
         throw err;
       }
-      const booking = store.createBooking({
-        courtId,
-        date,
-        hour,
+
+      let slots;
+      try {
+        slots = JSON.parse(req.body?.slots || '[]');
+      } catch (e) {
+        const err = new Error('Invalid slot selection.');
+        err.code = 'INVALID';
+        throw err;
+      }
+
+      const { groupId, bookings } = store.createBookings(slots, {
         name,
         contact,
         notes,
         screenshotFilename: req.file.filename,
       });
+
       res.status(201).json({
-        booking: {
-          id: booking.id,
-          courtId: booking.courtId,
-          date: booking.date,
-          hour: booking.hour,
-          status: booking.status,
-          price: booking.price,
-        },
+        groupId,
+        bookings: bookings.map((b) => ({
+          id: b.id,
+          courtId: b.courtId,
+          date: b.date,
+          hour: b.hour,
+          status: b.status,
+          price: b.price,
+        })),
       });
     } catch (err) {
       // Clean up the uploaded file if the booking itself failed validation
@@ -148,20 +158,20 @@ app.post('/api/admin/block', requireAdmin, (req, res) => {
   }
 });
 
-app.post('/api/admin/bookings/:id/confirm', requireAdmin, (req, res) => {
+app.post('/api/admin/groups/:groupId/confirm', requireAdmin, (req, res) => {
   try {
-    const booking = store.confirmBooking(req.params.id);
-    res.json({ booking });
+    const bookings = store.confirmGroup(req.params.groupId);
+    res.json({ bookings });
   } catch (err) {
     const status = err.code === 'NOT_FOUND' ? 404 : 400;
     res.status(status).json({ error: err.message });
   }
 });
 
-app.post('/api/admin/bookings/:id/reject', requireAdmin, (req, res) => {
+app.post('/api/admin/groups/:groupId/reject', requireAdmin, (req, res) => {
   try {
-    const booking = store.rejectBooking(req.params.id, req.body?.reason);
-    res.json({ booking });
+    const bookings = store.rejectGroup(req.params.groupId, req.body?.reason);
+    res.json({ bookings });
   } catch (err) {
     const status = err.code === 'NOT_FOUND' ? 404 : 400;
     res.status(status).json({ error: err.message });

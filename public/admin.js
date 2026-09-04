@@ -22,6 +22,11 @@
     return `${hour12}:00 ${period}`;
   }
 
+  function courtName(id) {
+    const c = CONFIG.courts.find((c) => c.id === id);
+    return c ? c.name : `Court ${id}`;
+  }
+
   lightbox.addEventListener('click', () => lightbox.classList.add('hidden'));
 
   async function authedFetch(url, opts) {
@@ -124,11 +129,6 @@
       bookings = bookings.filter((b) => b.date === dateFilter);
     }
 
-    const courtName = (id) => {
-      const c = CONFIG.courts.find((c) => c.id === id);
-      return c ? c.name : `Court ${id}`;
-    };
-
     const tbody = el('bookingTbody');
     tbody.innerHTML = '';
     if (bookings.length === 0) {
@@ -136,66 +136,127 @@
       return;
     }
 
+    // Group pending bookings that came from the same submission (same
+    // groupId) into a single row, since they share one payment screenshot
+    // and get confirmed/rejected together. Reviewed bookings are shown
+    // individually so each slot can be cancelled/deleted on its own.
+    const renderedGroups = new Set();
+
     bookings.forEach((b) => {
-      const tr = document.createElement('tr');
-      const priceLabel = b.price ? `₱${b.price}` : '';
-      tr.innerHTML = `
-        <td>${b.date}</td>
-        <td>${fmtHour(b.hour)}</td>
-        <td>${courtName(b.courtId)}</td>
-        <td>${escapeHtml(b.name)}${priceLabel ? `<div class="muted">${priceLabel}</div>` : ''}</td>
-        <td>${escapeHtml(b.contact)}</td>
-        <td class="proof-cell"></td>
-        <td>${escapeHtml(b.notes || '')}${b.rejectReason ? `<div class="muted">Reason: ${escapeHtml(b.rejectReason)}</div>` : ''}</td>
-        <td><span class="status-badge status-${b.status}">${b.status}</span></td>
-        <td class="row-actions"></td>
-      `;
-
-      const proofCell = tr.querySelector('.proof-cell');
-      if (b.screenshotUrl) {
-        const img = document.createElement('img');
-        img.className = 'thumb';
-        img.src = b.screenshotUrl;
-        img.alt = 'Payment screenshot';
-        img.addEventListener('click', () => {
-          lightboxImg.src = b.screenshotUrl;
-          lightbox.classList.remove('hidden');
-        });
-        proofCell.appendChild(img);
+      const isGroupable = b.status === 'pending' && b.groupId;
+      if (isGroupable) {
+        if (renderedGroups.has(b.groupId)) return; // already rendered with the group
+        renderedGroups.add(b.groupId);
+        const groupBookings = bookings.filter((x) => x.groupId === b.groupId && x.status === 'pending');
+        renderGroupRow(tbody, groupBookings);
       } else {
-        proofCell.innerHTML = '<span class="muted">—</span>';
+        renderSingleRow(tbody, b);
       }
-
-      const actionsTd = tr.querySelector('.row-actions');
-
-      if (b.status === 'pending') {
-        const confirmBtn = document.createElement('button');
-        confirmBtn.textContent = 'Confirm';
-        confirmBtn.className = 'confirm';
-        confirmBtn.addEventListener('click', () => confirmBooking(b.id));
-        actionsTd.appendChild(confirmBtn);
-
-        const rejectBtn = document.createElement('button');
-        rejectBtn.textContent = 'Reject';
-        rejectBtn.className = 'reject';
-        rejectBtn.addEventListener('click', () => rejectBooking(b.id));
-        actionsTd.appendChild(rejectBtn);
-      }
-
-      if (b.status === 'confirmed' || b.status === 'blocked') {
-        const cancelBtn = document.createElement('button');
-        cancelBtn.textContent = 'Cancel';
-        cancelBtn.addEventListener('click', () => cancelBooking(b.id));
-        actionsTd.appendChild(cancelBtn);
-      }
-
-      const deleteBtn = document.createElement('button');
-      deleteBtn.textContent = 'Delete';
-      deleteBtn.addEventListener('click', () => deleteBooking(b.id));
-      actionsTd.appendChild(deleteBtn);
-
-      tbody.appendChild(tr);
     });
+  }
+
+  function renderGroupRow(tbody, group) {
+    const tr = document.createElement('tr');
+    const first = group[0];
+    const totalPrice = group.reduce((sum, b) => sum + (b.price || 0), 0);
+    const slotsHtml = group
+      .map((b) => `${fmtHour(b.hour)} <span class="muted">${courtName(b.courtId)}</span>`)
+      .join('<br>');
+
+    tr.innerHTML = `
+      <td>${first.date}</td>
+      <td>${slotsHtml}</td>
+      <td>${group.length} slot${group.length > 1 ? 's' : ''}</td>
+      <td>${escapeHtml(first.name)}<div class="muted">₱${totalPrice} total</div></td>
+      <td>${escapeHtml(first.contact)}</td>
+      <td class="proof-cell"></td>
+      <td>${escapeHtml(first.notes || '')}</td>
+      <td><span class="status-badge status-pending">pending (${group.length})</span></td>
+      <td class="row-actions"></td>
+    `;
+
+    const proofCell = tr.querySelector('.proof-cell');
+    addProofThumb(proofCell, first);
+
+    const actionsTd = tr.querySelector('.row-actions');
+    const confirmBtn = document.createElement('button');
+    confirmBtn.textContent = `Confirm all (${group.length})`;
+    confirmBtn.className = 'confirm';
+    confirmBtn.addEventListener('click', () => confirmGroup(first.groupId, group.length));
+    actionsTd.appendChild(confirmBtn);
+
+    const rejectBtn = document.createElement('button');
+    rejectBtn.textContent = 'Reject all';
+    rejectBtn.className = 'reject';
+    rejectBtn.addEventListener('click', () => rejectGroup(first.groupId));
+    actionsTd.appendChild(rejectBtn);
+
+    tbody.appendChild(tr);
+  }
+
+  function renderSingleRow(tbody, b) {
+    const tr = document.createElement('tr');
+    const priceLabel = b.price ? `₱${b.price}` : '';
+    tr.innerHTML = `
+      <td>${b.date}</td>
+      <td>${fmtHour(b.hour)}</td>
+      <td>${courtName(b.courtId)}</td>
+      <td>${escapeHtml(b.name)}${priceLabel ? `<div class="muted">${priceLabel}</div>` : ''}</td>
+      <td>${escapeHtml(b.contact)}</td>
+      <td class="proof-cell"></td>
+      <td>${escapeHtml(b.notes || '')}${b.rejectReason ? `<div class="muted">Reason: ${escapeHtml(b.rejectReason)}</div>` : ''}</td>
+      <td><span class="status-badge status-${b.status}">${b.status}</span></td>
+      <td class="row-actions"></td>
+    `;
+
+    const proofCell = tr.querySelector('.proof-cell');
+    addProofThumb(proofCell, b);
+
+    const actionsTd = tr.querySelector('.row-actions');
+
+    if (b.status === 'pending') {
+      const confirmBtn = document.createElement('button');
+      confirmBtn.textContent = 'Confirm';
+      confirmBtn.className = 'confirm';
+      confirmBtn.addEventListener('click', () => confirmGroup(b.groupId || String(b.id), 1));
+      actionsTd.appendChild(confirmBtn);
+
+      const rejectBtn = document.createElement('button');
+      rejectBtn.textContent = 'Reject';
+      rejectBtn.className = 'reject';
+      rejectBtn.addEventListener('click', () => rejectGroup(b.groupId || String(b.id)));
+      actionsTd.appendChild(rejectBtn);
+    }
+
+    if (b.status === 'confirmed' || b.status === 'blocked') {
+      const cancelBtn = document.createElement('button');
+      cancelBtn.textContent = 'Cancel';
+      cancelBtn.addEventListener('click', () => cancelBooking(b.id));
+      actionsTd.appendChild(cancelBtn);
+    }
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.addEventListener('click', () => deleteBooking(b.id));
+    actionsTd.appendChild(deleteBtn);
+
+    tbody.appendChild(tr);
+  }
+
+  function addProofThumb(cell, b) {
+    if (b.screenshotUrl) {
+      const img = document.createElement('img');
+      img.className = 'thumb';
+      img.src = b.screenshotUrl;
+      img.alt = 'Payment screenshot';
+      img.addEventListener('click', () => {
+        lightboxImg.src = b.screenshotUrl;
+        lightbox.classList.remove('hidden');
+      });
+      cell.appendChild(img);
+    } else {
+      cell.innerHTML = '<span class="muted">—</span>';
+    }
   }
 
   function escapeHtml(str) {
@@ -204,13 +265,14 @@
     }[c]));
   }
 
-  async function confirmBooking(id) {
-    if (!confirm('Confirm this booking? Only do this after verifying the payment screenshot is real.')) return;
+  async function confirmGroup(groupId, count) {
+    const label = count > 1 ? `these ${count} slots` : 'this booking';
+    if (!confirm(`Confirm ${label}? Only do this after verifying the payment screenshot is real.`)) return;
     try {
-      const res = await authedFetch(`/api/admin/bookings/${id}/confirm`, { method: 'POST' });
+      const res = await authedFetch(`/api/admin/groups/${groupId}/confirm`, { method: 'POST' });
       const data = await res.json();
       if (res.ok) {
-        showToast('Booking confirmed', 'success');
+        showToast(count > 1 ? `${count} slots confirmed` : 'Booking confirmed', 'success');
         await loadBookings();
       } else {
         showToast(data.error || 'Could not confirm booking', 'error');
@@ -218,17 +280,17 @@
     } catch (e) {}
   }
 
-  async function rejectBooking(id) {
+  async function rejectGroup(groupId) {
     const reason = prompt('Reason for rejecting (optional, e.g. "Screenshot does not match amount"):') || '';
     try {
-      const res = await authedFetch(`/api/admin/bookings/${id}/reject`, {
+      const res = await authedFetch(`/api/admin/groups/${groupId}/reject`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason }),
       });
       const data = await res.json();
       if (res.ok) {
-        showToast('Booking rejected — slot re-opened', 'success');
+        showToast('Booking rejected — slot(s) re-opened', 'success');
         await loadBookings();
       } else {
         showToast(data.error || 'Could not reject booking', 'error');

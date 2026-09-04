@@ -28,20 +28,33 @@ http://localhost:3000/admin.html for the admin dashboard (default password
 
 ## How booking works
 
-1. Customer picks an open (green) slot on the public grid.
-2. The modal shows the price and your payment instructions (GCash number,
+1. The public page shows one table: courts as columns, hours as rows.
+   Customer taps any number of **OPEN** cells — across different courts
+   and/or different times on the same day — to select them; selected
+   cells turn green.
+2. A summary bar appears below the grid ("N slots selected · ₱total").
+   Clicking **Book selected** opens a modal listing every selected slot
+   and the total price, plus your payment instructions (GCash number,
    etc. — edit these in `lib/store.js`).
-3. Customer enters their name, phone/email, and uploads a screenshot of the
-   payment, then submits.
-4. The slot immediately shows as **Pending** (yellow) to everyone else, so
-   nobody else can book the same court/hour while it's under review.
-5. In the admin dashboard, you see the pending booking with a thumbnail of
-   the screenshot (click to view full size). You either:
-   - **Confirm** — payment looks real, slot becomes booked (red).
-   - **Reject** — payment looks fake/wrong, slot re-opens; you can add a
-     reason that's saved on the booking record.
-6. Confirmed bookings can later be **Cancelled** by the admin if needed
-   (e.g. a customer asks to cancel), which also re-opens the slot.
+3. Customer enters their name, phone/email, and uploads **one** screenshot
+   covering the whole payment (even if it's for multiple slots), then
+   submits. Up to `MAX_SLOTS_PER_BOOKING` slots (12 by default) can be
+   submitted together.
+4. All selected slots are created together as one "group" and immediately
+   show as **Pending** to everyone else, so nobody else can book them
+   while under review. If any of the selected slots was taken in the
+   meantime, the whole submission is rejected (nothing is partially
+   booked) and the customer is asked to reselect.
+5. In the admin dashboard, pending bookings from the same submission are
+   shown as a single row (since they share one payment screenshot) with a
+   thumbnail (click to view full size). You either:
+   - **Confirm all** — payment looks real, every slot in that submission
+     becomes booked.
+   - **Reject all** — payment looks fake/wrong, every slot re-opens; you
+     can add a reason that's saved on each booking record.
+6. Once confirmed, slots appear as individual rows so you can **Cancel**
+   just one of them if needed (e.g. the customer only wants to cancel one
+   court out of several), which re-opens that slot.
 7. Any booking can be permanently **Deleted** from the admin dashboard,
    which also removes its uploaded screenshot from disk.
 
