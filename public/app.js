@@ -66,9 +66,9 @@
     const start = to12Hour(h);
     const end = to12Hour(h + 1);
     if (start.period === end.period) {
-      return `${start.hour}\u2013${end.hour} ${start.period}`;
+      return `${start.hour} - ${end.hour} ${start.period}`;
     }
-    return `${start.hour} ${start.period}\u2013${end.hour} ${end.period}`;
+    return `${start.hour} ${start.period} - ${end.hour} ${end.period}`;
   }
 
   // "6 AM" style label for a single hour boundary (used for the venue meta row).
