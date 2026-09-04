@@ -6,7 +6,7 @@
 <title>FORA Pickleball &mdash; Court Booking</title>
 <link rel="stylesheet" href="style.css" />
 </head>
-<body class="pb-dark">
+<body>
 <main>
   <div class="booking-card" id="bookingCard">
     <div class="card-inner" id="cardInner">
@@ -37,19 +37,31 @@
 
       <div class="card-divider"></div>
 
-      <!-- Date range navigation -->
+      <!-- Calendar + times -->
       <div class="section">
-        <div class="range-nav">
-          <button type="button" class="range-nav-btn" id="rangePrevBtn" aria-label="Previous days">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M15 19l-7-7 7-7"/></svg>
-          </button>
-          <span class="range-label" id="rangeLabel">&nbsp;</span>
-          <button type="button" class="range-nav-btn" id="rangeNextBtn" aria-label="Next days">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
-          </button>
-        </div>
+        <div class="schedule-columns">
+          <div class="calendar-col">
+            <div class="month-nav">
+              <button type="button" class="month-nav-btn" id="monthPrevBtn" aria-label="Previous month">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M15 19l-7-7 7-7"/></svg>
+              </button>
+              <span class="month-label" id="monthLabel">&nbsp;</span>
+              <button type="button" class="month-nav-btn" id="monthNextBtn" aria-label="Next month">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+              </button>
+            </div>
+            <div class="weekday-row">
+              <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+            </div>
+            <div class="cal-grid" id="calGrid"></div>
+          </div>
 
-        <div class="day-list" id="dayList"></div>
+          <div class="times-col">
+            <h3 class="times-heading" id="timesHeading">&nbsp;</h3>
+            <div class="times-avail-legend"><span class="dot"></span><span>times you're available</span></div>
+            <div class="time-list" id="timeList"></div>
+          </div>
+        </div>
       </div>
 
       <!-- Bottom action bar -->

@@ -1,21 +1,22 @@
 (function () {
-  const RANGE_LEN = 6;
-
   let CONFIG = null;
   let currentCourtId = null;
-  let rangeStart = todayDate();
-  let bookingsByDate = {}; // date -> { "courtId-hour": booking }
+  let calendarMonth = firstOfMonth(new Date());
+  let selectedDate = todayStr();
+  let dayBookings = {}; // "courtId-hour" -> booking, for selectedDate
 
-  // Selections can span multiple courts and dates in one submission.
-  // Key: "courtId-date-hour"
-  const selectedSlots = new Map(); // key -> { courtId, date, hour }
+  // Key: "courtId-date-hour" (date is always selectedDate while a date is
+  // selected, but keeping it in the key keeps things consistent if that changes)
+  const selectedSlots = new Map();
 
   const el = (id) => document.getElementById(id);
   const courtSelect = el('courtSelect');
-  const rangeLabel = el('rangeLabel');
-  const rangePrevBtn = el('rangePrevBtn');
-  const rangeNextBtn = el('rangeNextBtn');
-  const dayList = el('dayList');
+  const monthLabel = el('monthLabel');
+  const monthPrevBtn = el('monthPrevBtn');
+  const monthNextBtn = el('monthNextBtn');
+  const calGrid = el('calGrid');
+  const timesHeading = el('timesHeading');
+  const timeList = el('timeList');
   const bookingCard = el('bookingCard');
   const confirmPanel = el('confirmPanel');
   const modalSub = el('modalSub');
@@ -33,10 +34,12 @@
     return d;
   }
 
-  function addDays(date, n) {
-    const d = new Date(date);
-    d.setDate(d.getDate() + n);
-    return d;
+  function todayStr() {
+    return fmtDate(todayDate());
+  }
+
+  function firstOfMonth(d) {
+    return new Date(d.getFullYear(), d.getMonth(), 1);
   }
 
   function fmtDate(d) {
@@ -44,10 +47,6 @@
     const m = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
     return `${y}-${m}-${day}`;
-  }
-
-  function fmtShort(d) {
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   }
 
   // "01:00 PM" style label for a one-hour slot starting at `h` (24h).
@@ -91,7 +90,7 @@
 
   courtSelect.addEventListener('change', () => {
     currentCourtId = Number(courtSelect.value);
-    renderDays();
+    loadTimes();
   });
 
   function isPastSlot(dateStr, hour) {
@@ -128,120 +127,137 @@
       }
       selectedSlots.set(key, { courtId, date, hour });
     }
-    renderDays();
+    renderTimes();
     updateSummaryBar();
   }
 
   clearSelectionBtn.addEventListener('click', () => {
     selectedSlots.clear();
     updateSummaryBar();
-    renderDays();
+    renderTimes();
   });
 
   bookSelectedBtn.addEventListener('click', () => openModal());
 
-  function currentRangeDates() {
-    const dates = [];
-    for (let i = 0; i < RANGE_LEN; i++) dates.push(addDays(rangeStart, i));
-    return dates;
-  }
+  // --- Calendar ---
+  function renderCalendar() {
+    monthLabel.textContent = calendarMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 
-  function updateRangeLabel() {
-    const dates = currentRangeDates();
-    rangeLabel.textContent = `${fmtShort(dates[0])} - ${fmtShort(dates[dates.length - 1])}`;
-    rangePrevBtn.disabled = fmtDate(rangeStart) <= fmtDate(todayDate());
-  }
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    const firstWeekday = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const totalCells = Math.ceil((firstWeekday + daysInMonth) / 7) * 7;
 
-  rangePrevBtn.addEventListener('click', () => {
-    const candidate = addDays(rangeStart, -RANGE_LEN);
-    rangeStart = candidate < todayDate() ? todayDate() : candidate;
-    loadSchedule();
-  });
+    const todayS = todayStr();
+    calGrid.innerHTML = '';
 
-  rangeNextBtn.addEventListener('click', () => {
-    rangeStart = addDays(rangeStart, RANGE_LEN);
-    loadSchedule();
-  });
-
-  async function loadSchedule() {
-    updateRangeLabel();
-    const dates = currentRangeDates();
-    const results = await Promise.all(
-      dates.map((d) => fetch(`/api/bookings?date=${fmtDate(d)}`).then((r) => r.json()))
-    );
-    bookingsByDate = {};
-    dates.forEach((d, i) => {
-      const map = {};
-      (results[i].bookings || []).forEach((b) => {
-        map[`${b.courtId}-${b.hour}`] = b;
-      });
-      bookingsByDate[fmtDate(d)] = map;
-    });
-    renderDays();
-  }
-
-  function renderDays() {
-    dayList.innerHTML = '';
-    const dates = currentRangeDates();
-
-    dates.forEach((d, i) => {
-      const dateStr = fmtDate(d);
-      const dayMap = bookingsByDate[dateStr] || {};
-
-      const hours = CONFIG.hours.filter((hour) => !isPastSlot(dateStr, hour));
-
-      const section = document.createElement('div');
-      section.className = 'day-section';
-
-      const header = document.createElement('div');
-      header.className = 'day-header';
-      const dayLabel = i === 0
-        ? `Today, ${fmtShort(d)}`
-        : `${d.toLocaleDateString(undefined, { weekday: 'short' })}, ${fmtShort(d)}`;
-      const h3 = document.createElement('h3');
-      h3.textContent = dayLabel;
-      header.appendChild(h3);
-
-      if (hours.length === 0) {
+    for (let cell = 0; cell < totalCells; cell++) {
+      const dayNum = cell - firstWeekday + 1;
+      if (dayNum < 1 || dayNum > daysInMonth) {
         const empty = document.createElement('span');
-        empty.className = 'day-empty';
-        empty.textContent = 'No availability';
-        header.appendChild(empty);
-        section.appendChild(header);
-        dayList.appendChild(section);
-        return;
+        empty.className = 'cal-day empty';
+        calGrid.appendChild(empty);
+        continue;
       }
+      const dateObj = new Date(year, month, dayNum);
+      const dateStr = fmtDate(dateObj);
 
-      section.appendChild(header);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = String(dayNum);
+      let cls = 'cal-day';
+      if (dateStr === todayS) cls += ' today';
+      if (dateStr === selectedDate) cls += ' selected';
+      btn.className = cls;
 
-      const pills = document.createElement('div');
-      pills.className = 'day-pills';
+      if (dateStr < todayS) {
+        btn.disabled = true;
+      } else {
+        btn.addEventListener('click', () => selectDate(dateStr));
+      }
+      calGrid.appendChild(btn);
+    }
 
-      hours.forEach((hour) => {
-        const key = `${currentCourtId}-${hour}`;
-        const booking = dayMap[key];
-        const selKey = `${currentCourtId}-${dateStr}-${hour}`;
-        const isSelected = selectedSlots.has(selKey);
+    const monthStart = fmtDate(firstOfMonth(new Date()));
+    monthPrevBtn.disabled = fmtDate(calendarMonth) <= monthStart;
+  }
 
-        const btn = document.createElement('button');
-        btn.type = 'button';
+  function selectDate(dateStr) {
+    if (dateStr === selectedDate) return;
+    selectedDate = dateStr;
+    if (selectedSlots.size > 0) {
+      selectedSlots.clear();
+      updateSummaryBar();
+    }
+    renderCalendar();
+    loadTimes();
+  }
 
-        if (booking) {
-          btn.className = 'pill unavailable';
-          btn.disabled = true;
-        } else if (isSelected) {
-          btn.className = 'pill selected';
-          btn.addEventListener('click', () => toggleSlot(currentCourtId, dateStr, hour));
-        } else {
-          btn.className = 'pill';
-          btn.addEventListener('click', () => toggleSlot(currentCourtId, dateStr, hour));
-        }
-        btn.textContent = fmtTime(hour);
-        pills.appendChild(btn);
-      });
+  monthPrevBtn.addEventListener('click', () => {
+    const candidate = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1);
+    const floor = firstOfMonth(new Date());
+    calendarMonth = candidate < floor ? floor : candidate;
+    renderCalendar();
+  });
 
-      section.appendChild(pills);
-      dayList.appendChild(section);
+  monthNextBtn.addEventListener('click', () => {
+    calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1);
+    renderCalendar();
+  });
+
+  // --- Times list ---
+  async function loadTimes() {
+    const res = await fetch(`/api/bookings?date=${selectedDate}`);
+    const data = await res.json();
+    dayBookings = {};
+    (data.bookings || []).forEach((b) => {
+      dayBookings[`${b.courtId}-${b.hour}`] = b;
+    });
+    renderTimes();
+  }
+
+  function renderTimes() {
+    const dateObj = new Date(selectedDate + 'T00:00:00');
+    timesHeading.textContent = dateObj.toLocaleDateString(undefined, {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+    });
+
+    const hours = CONFIG.hours.filter((hour) => !isPastSlot(selectedDate, hour));
+
+    timeList.innerHTML = '';
+
+    if (hours.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'time-empty';
+      empty.textContent = 'No times available for this date.';
+      timeList.appendChild(empty);
+      return;
+    }
+
+    hours.forEach((hour) => {
+      const key = `${currentCourtId}-${hour}`;
+      const booking = dayBookings[key];
+      const selKey = `${currentCourtId}-${selectedDate}-${hour}`;
+      const isSelected = selectedSlots.has(selKey);
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+
+      if (booking) {
+        btn.className = 'time-slot unavailable';
+        btn.disabled = true;
+      } else if (isSelected) {
+        btn.className = 'time-slot selected';
+        btn.addEventListener('click', () => toggleSlot(currentCourtId, selectedDate, hour));
+      } else {
+        btn.className = 'time-slot';
+        btn.addEventListener('click', () => toggleSlot(currentCourtId, selectedDate, hour));
+      }
+      btn.innerHTML = `<span class="dot"></span><span>${fmtTime(hour)}</span>`;
+      timeList.appendChild(btn);
     });
   }
 
@@ -258,7 +274,7 @@
     slots.forEach((s) => {
       const row = document.createElement('div');
       row.className = 'selected-slot-row';
-      const shortDate = fmtShort(new Date(s.date + 'T00:00:00'));
+      const shortDate = new Date(s.date + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
       row.innerHTML = `
         <span class="slot-info"><span class="slot-date">${shortDate}</span>${fmtTime(s.hour)}<span class="slot-court">${courtName(s.courtId)}</span></span>
         <span class="slot-price">₱${CONFIG.pricePerHour}</span>
@@ -296,7 +312,7 @@
     closeModal();
     selectedSlots.clear();
     updateSummaryBar();
-    await loadSchedule();
+    await loadTimes();
   });
 
   el('screenshot').addEventListener('change', () => {
@@ -354,7 +370,7 @@
         if (data.code === 'TAKEN') {
           selectedSlots.clear();
           updateSummaryBar();
-          await loadSchedule();
+          await loadTimes();
         }
         return;
       }
@@ -372,6 +388,7 @@
   (async function init() {
     await loadConfig();
     updateSummaryBar();
-    await loadSchedule();
+    renderCalendar();
+    await loadTimes();
   })();
 })();

@@ -51,38 +51,6 @@
   --radius-sm: 10px;
 }
 
-/* --- Dark theme for the public booking page (scoped to body.pb-dark; admin.html is untouched) --- */
-body.pb-dark {
-  --bg: #0b0b0c;
-  --card-bg: #19191b;
-  --border: rgba(255, 255, 255, 0.09);
-  --border-strong: rgba(255, 255, 255, 0.17);
-  --header-bg: #1f1f22;
-  --ink: #f5f5f6;
-  --text: #e7e7ea;
-  --muted: #9a9aa1;
-  --muted-2: #6c6c72;
-
-  --green: #34d16f;
-  --green-strong: #29b25d;
-  --green-soft: rgba(52, 209, 111, 0.14);
-  --green-ring: rgba(52, 209, 111, 0.4);
-  --green-ink: #a8f0c2;
-
-  --accent-amber: #f0b429;
-  --accent-amber-soft: rgba(240, 180, 41, 0.14);
-  --amber-border: rgba(240, 180, 41, 0.35);
-
-  --gray-soft: #222225;
-  --gray-border: rgba(255, 255, 255, 0.1);
-
-  --danger: #ff5449;
-
-  --surface-2: #201f22;
-  --toast-bg: #f5f5f6;
-  --toast-text: #0a0a0a;
-}
-
 * { box-sizing: border-box; }
 
 body {
@@ -94,7 +62,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3, h4, .btn, .pill, .range-label, .section-title,
+h1, h2, h3, h4, .btn, .month-label, .section-title,
 .summary-text, .payment-amount, .status-badge,
 .venue-name, .venue-price-value, .confirm-head h3, .venue-summary-row h4,
 .shine-btn {
@@ -116,10 +84,6 @@ main {
   border-radius: var(--radius-lg);
   box-shadow: 0 1px 3px rgba(10, 10, 10, 0.04), 0 16px 40px rgba(10, 10, 10, 0.07);
   overflow: hidden;
-}
-
-body.pb-dark .booking-card {
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 20px 50px rgba(0, 0, 0, 0.5);
 }
 
 .card-divider { border-top: 1px solid var(--border); margin: 0 24px; }
@@ -188,8 +152,6 @@ body.pb-dark .booking-card {
   font-variant-numeric: tabular-nums;
 }
 
-body.pb-dark .venue-price-value { color: var(--green); }
-
 /* --- Sections inside card --- */
 .section { padding: 20px 24px 8px; }
 
@@ -256,18 +218,27 @@ body.pb-dark .venue-price-value { color: var(--green); }
   pointer-events: none;
 }
 
-/* --- Date range navigation --- */
-.range-nav {
+/* --- Calendar + times layout --- */
+.schedule-columns {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.calendar-col { flex: 1 1 240px; min-width: 230px; }
+.times-col { flex: 1 1 190px; min-width: 190px; }
+
+.month-nav {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 }
 
-.range-nav-btn {
+.month-nav-btn {
   flex: none;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   background: var(--surface-2);
   border: 1px solid var(--border);
@@ -279,79 +250,150 @@ body.pb-dark .venue-price-value { color: var(--green); }
   transition: border-color 120ms ease, transform 80ms ease, opacity 120ms ease;
 }
 
-.range-nav-btn:hover:not(:disabled) { border-color: var(--border-strong); }
-.range-nav-btn:active:not(:disabled) { transform: scale(0.92); }
-.range-nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.month-nav-btn:hover:not(:disabled) { border-color: var(--border-strong); }
+.month-nav-btn:active:not(:disabled) { transform: scale(0.92); }
+.month-nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
-.range-label {
+.month-label {
   font-weight: 800;
-  font-size: 0.95rem;
-  color: var(--ink);
-}
-
-/* --- Day list (pill schedule) --- */
-.day-list {
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
-  padding-bottom: 6px;
-}
-
-.day-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 11px;
-}
-
-.day-header h3 {
-  margin: 0;
   font-size: 0.9rem;
-  font-weight: 700;
   color: var(--ink);
 }
 
-.day-empty {
+.weekday-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin-bottom: 6px;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.cal-day {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
   font-size: 0.82rem;
   font-weight: 600;
-  color: var(--muted-2);
-  white-space: nowrap;
-}
-
-.day-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.pill {
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
   color: var(--text);
-  font-size: 0.82rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+  transition: background-color 120ms ease, color 120ms ease, transform 80ms ease;
+}
+
+.cal-day:hover:not(:disabled):not(.selected) { background: var(--gray-soft); }
+.cal-day:active:not(:disabled) { transform: scale(0.92); }
+
+.cal-day.today:not(.selected) { box-shadow: inset 0 0 0 1.5px var(--green); }
+
+.cal-day.selected {
+  background: var(--green);
+  color: #06210f;
+  font-weight: 800;
+}
+
+.cal-day:disabled { color: var(--muted-2); cursor: not-allowed; }
+
+.cal-day.empty { visibility: hidden; pointer-events: none; }
+
+.times-heading {
+  margin: 0 0 10px;
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.times-avail-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.times-avail-legend .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  display: inline-block;
+}
+
+.time-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 330px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.time-slot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text);
+  font-size: 0.85rem;
   font-weight: 700;
-  padding: 9px 15px;
   cursor: pointer;
   font-variant-numeric: tabular-nums;
-  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, transform 80ms ease;
+  transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease, transform 80ms ease;
 }
 
-.pill:hover:not(:disabled) { border-color: var(--border-strong); }
-.pill:active:not(:disabled) { transform: scale(0.96); }
+.time-slot .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  flex: none;
+}
 
-.pill.selected {
+.time-slot:hover:not(:disabled) { border-color: var(--green); }
+.time-slot:active:not(:disabled) { transform: scale(0.98); }
+
+.time-slot.selected {
   background: var(--green);
   border-color: var(--green);
   color: #06210f;
 }
 
-.pill.unavailable {
-  background: transparent;
-  border-color: var(--border);
+.time-slot.selected .dot { background: #06210f; }
+
+.time-slot.unavailable {
   color: var(--muted-2);
+  border-color: var(--border);
+  background: var(--gray-soft);
   cursor: not-allowed;
+}
+
+.time-slot.unavailable .dot { display: none; }
+
+.time-empty {
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-weight: 600;
+  padding: 6px 2px;
 }
 
 /* --- Bottom action bar --- */
@@ -433,7 +475,6 @@ body.pb-dark .venue-price-value { color: var(--green); }
 }
 
 .admin-link a { color: var(--green-strong); text-decoration: none; }
-body.pb-dark .admin-link a { color: var(--green); }
 .admin-link a:hover { text-decoration: underline; }
 
 /* --- Sliding confirmation panel --- */
@@ -542,8 +583,6 @@ body.pb-dark .admin-link a { color: var(--green); }
   font-variant-numeric: tabular-nums;
 }
 
-body.pb-dark .payment-amount { color: var(--green); }
-
 .payment-instructions {
   margin: 0;
   font-size: 0.85rem;
@@ -595,8 +634,6 @@ body.pb-dark .payment-amount { color: var(--green); }
   outline-offset: -1px;
 }
 
-body.pb-dark .preview-wrap { outline-color: oklch(1 0 0 / 0.1); }
-
 .preview-wrap img {
   display: block;
   width: 100%;
@@ -623,7 +660,7 @@ body.pb-dark .preview-wrap { outline-color: oklch(1 0 0 / 0.1); }
 .selected-slot-row:last-child { border-bottom: none; }
 
 .selected-slot-row .slot-info { color: var(--text); font-weight: 700; }
-.selected-slot-row .slot-date { color: var(--green); font-weight: 700; margin-right: 6px; }
+.selected-slot-row .slot-date { color: var(--green-strong); font-weight: 700; margin-right: 6px; }
 .selected-slot-row .slot-court { color: var(--muted); font-weight: 500; margin-left: 6px; }
 .selected-slot-row .slot-price { color: var(--muted); font-variant-numeric: tabular-nums; }
 
