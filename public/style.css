@@ -288,7 +288,7 @@ main {
   background: transparent;
   font-family: var(--font-rounded);
   font-size: 0.88rem;
-  font-weight: 700;
+  font-weight: 400;
   color: var(--text);
   cursor: pointer;
   display: flex;
@@ -306,7 +306,7 @@ main {
 .cal-day.selected {
   background: var(--green);
   color: #06210f;
-  font-weight: 800;
+  font-weight: 500;
   box-shadow: 0 2px 8px rgba(21, 128, 61, 0.3);
 }
 
