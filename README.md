@@ -9,10 +9,15 @@ or **Rejects** it (slot re-opens for others).
 
 ## Stack
 
-Plain Node.js + Express backend, vanilla HTML/CSS/JS frontend, and a small
-JSON file (`data/db.json`) as the database — no external database required.
-Payment screenshots are stored on disk under `uploads/` and are only ever
-served to authenticated admin requests (never linked from the public site).
+Plain Node.js + Express backend, vanilla HTML/CSS/JS frontend. Locally (or
+on any host with a persistent disk, like a VPS or Render) it stores bookings
+in a small JSON file (`data/db.json`) and payment screenshots on disk under
+`uploads/` — no external database required. On Vercel, whose serverless
+functions have a read-only filesystem, it automatically switches to Vercel
+Blob (screenshots) and a Redis store via the Vercel Marketplace (bookings)
+instead — see "Deploying to Vercel" below. Screenshots are only ever served
+to authenticated admin requests (never linked from the public site) either
+way.
 
 ## Getting started
 
@@ -58,6 +63,30 @@ http://localhost:3000/admin.html for the admin dashboard (default password
 7. Any booking can be permanently **Deleted** from the admin dashboard,
    which also removes its uploaded screenshot from disk.
 
+## Deploying to Vercel
+
+Vercel's serverless functions run on a read-only filesystem (only `/tmp` is
+writable), so the local JSON-file/disk storage above can't be used there —
+without the two integrations below, the app crashes on startup instead.
+
+1. **Push this repo to Vercel** (import the GitHub repo, or `vercel deploy`).
+   `vercel.json` and `api/index.js` are already set up to run the whole
+   Express app as one serverless function.
+2. **Add screenshot storage:** in the Vercel project, go to Storage → Browse
+   Marketplace → add **Blob**. This sets `BLOB_READ_WRITE_TOKEN`
+   automatically; no code changes needed.
+3. **Add a bookings database:** in the same Storage tab, add a **Redis**
+   integration (e.g. Upstash Redis) from the Marketplace. This sets
+   `KV_REST_API_URL` / `KV_REST_API_TOKEN` automatically.
+4. **Set `ADMIN_PASSWORD`** under Project Settings → Environment Variables
+   (falls back to `admin123` if unset — change this before going live).
+5. Redeploy so the new environment variables take effect.
+
+Without step 2 the app will crash immediately on any request (the original
+"Serverless Function has crashed" error); without step 3 it'll run but every
+booking will vanish the moment the serverless instance recycles. Both are
+required for a real deployment.
+
 ## Configuration
 
 Edit the constants at the top of `lib/store.js` to change:
@@ -76,9 +105,11 @@ Admin password is set via the `ADMIN_PASSWORD` environment variable (see
 
 ```
 server.js            Express app, API routes, screenshot upload handling (multer)
+api/index.js            Vercel serverless entry point (re-exports server.js)
+vercel.json              Routes every request on Vercel to api/index.js
 lib/store.js          Booking data + business rules (courts, hours, statuses, double-booking checks)
-data/db.json           Booking data (auto-created, gitignored)
-uploads/                Payment screenshots (auto-created, gitignored)
+data/db.json           Booking data -- local/disk mode only (auto-created, gitignored)
+uploads/                Payment screenshots -- local/disk mode only (auto-created, gitignored)
 public/index.html      Public booking page
 public/app.js            Public booking page logic
 public/admin.html      Admin dashboard
