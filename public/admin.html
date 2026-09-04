@@ -104,8 +104,11 @@
   #refreshBtn:hover { text-decoration: underline; }
 
   /* --- Table: quiet header rule, no cell background, dot-based status --- */
-  table.list { width: 100%; border-collapse: collapse; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
-  table.list th, table.list td { padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 0.87rem; text-align: left; vertical-align: middle; }
+  table.list { width: 100%; min-width: 980px; border-collapse: collapse; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+  table.list th, table.list td { padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 0.87rem; text-align: left; vertical-align: middle; white-space: nowrap; }
+  table.list td:nth-child(4), table.list td:nth-child(7) { white-space: normal; }
+  table.list td:nth-child(4) { min-width: 130px; }
+  table.list td:nth-child(7) { min-width: 140px; }
   table.list th {
     background: none;
     font-size: 0.7rem;
@@ -125,6 +128,7 @@
     font-size: 0.82rem;
     font-weight: 600;
     text-transform: capitalize;
+    white-space: nowrap;
   }
   .status-badge::before {
     content: '';
@@ -158,6 +162,7 @@
     background: none;
     color: var(--muted);
     cursor: pointer;
+    white-space: nowrap;
     transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
   }
   .row-actions button:hover { color: var(--ink); background: var(--surface-2); }
