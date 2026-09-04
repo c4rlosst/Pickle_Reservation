@@ -63,6 +63,12 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+body.booking-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 h1, h2, h3, h4, .btn, .month-label, .section-title,
 .summary-text, .payment-amount, .status-badge,
 .venue-name, .venue-price-value, .confirm-head h3, .venue-summary-row h4,
@@ -73,6 +79,7 @@ h1, h2, h3, h4, .btn, .month-label, .section-title,
 
 main {
   max-width: 700px;
+  width: 100%;
   margin: 0 auto;
   padding: 28px 16px 40px;
 }
