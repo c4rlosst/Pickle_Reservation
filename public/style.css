@@ -527,6 +527,17 @@ main {
   filter: blur(1px);
 }
 
+/* When the success state shows, shrink the card to fit the short
+   confirmation content instead of leaving the tall form's empty space. */
+.booking-card.success-compact .card-inner {
+  display: none;
+}
+
+.booking-card.success-compact .confirm-panel {
+  position: relative;
+  inset: auto;
+}
+
 .confirm-scroll {
   flex: 1;
   display: flex;

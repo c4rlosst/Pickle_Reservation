@@ -328,6 +328,7 @@
     el('selectedSlotsList').classList.remove('hidden');
     el('paymentAmount').closest('.payment-box').classList.remove('hidden');
     successBox.classList.add('hidden');
+    bookingCard.classList.remove('success-compact');
     el('submitBtn').disabled = false;
     el('submitBtn').querySelector('span').textContent = 'SUBMIT FOR REVIEW';
 
@@ -338,6 +339,7 @@
   function closeModal() {
     confirmPanel.classList.remove('open');
     bookingCard.classList.remove('confirm-open');
+    bookingCard.classList.remove('success-compact');
   }
 
   el('backBtn').addEventListener('click', closeModal);
@@ -491,6 +493,10 @@
       el('selectedSlotsList').classList.add('hidden');
       el('paymentAmount').closest('.payment-box').classList.add('hidden');
       successBox.classList.remove('hidden');
+      bookingCard.classList.add('success-compact');
+      selectedSlots.clear();
+      updateSummaryBar();
+      await loadTimes();
     } catch (err) {
       formError.textContent = 'Network error. Please try again.';
       submitBtn.disabled = false;
