@@ -3,6 +3,7 @@
 :root {
   --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-body: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-rounded: ui-rounded, "SF Pro Rounded", "Segoe UI Rounded", "Nunito", var(--font-body);
   --font: var(--font-body);
 
   --bg: #eef0f2;
@@ -264,6 +265,7 @@ main {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   text-align: center;
+  font-family: var(--font-rounded);
   font-size: 0.66rem;
   font-weight: 700;
   color: var(--muted);
@@ -284,8 +286,9 @@ main {
   border-radius: 50%;
   border: none;
   background: transparent;
-  font-size: 0.82rem;
-  font-weight: 600;
+  font-family: var(--font-rounded);
+  font-size: 0.88rem;
+  font-weight: 700;
   color: var(--text);
   cursor: pointer;
   display: flex;
@@ -304,6 +307,7 @@ main {
   background: var(--green);
   color: #06210f;
   font-weight: 800;
+  box-shadow: 0 2px 8px rgba(21, 128, 61, 0.3);
 }
 
 .cal-day:disabled { color: var(--muted-2); cursor: not-allowed; }
