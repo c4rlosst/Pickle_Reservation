@@ -246,7 +246,13 @@
       const btn = document.createElement('button');
       btn.type = 'button';
 
-      if (booking) {
+      if (booking && booking.status === 'pending') {
+        btn.className = 'time-slot unavailable pending';
+        btn.disabled = true;
+        btn.innerHTML = `<span>${fmtTime(hour)}</span><span class="pending-badge">Pending</span>`;
+        timeList.appendChild(btn);
+        return;
+      } else if (booking) {
         btn.className = 'time-slot unavailable';
         btn.disabled = true;
       } else if (isSelected) {

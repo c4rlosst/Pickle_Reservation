@@ -400,6 +400,26 @@ main {
 
 .time-slot.unavailable .dot { display: none; }
 
+.time-slot.pending {
+  justify-content: space-between;
+  color: var(--text);
+  border-color: var(--amber-border);
+  background: var(--accent-amber-soft);
+}
+
+.pending-badge {
+  flex: none;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--accent-amber);
+  background: #fff;
+  border: 1px solid var(--amber-border);
+  border-radius: 999px;
+  padding: 3px 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
 .time-empty {
   font-size: 0.85rem;
   color: var(--muted);
