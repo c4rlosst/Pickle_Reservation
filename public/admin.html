@@ -234,6 +234,64 @@
   }
 
   .muted { color: var(--muted); font-size: 0.85rem; }
+
+  /* --- Mobile: the fixed-column table becomes a stack of cards ---
+     table-layout: fixed is great on desktop but has no room to give
+     on a phone; below this width each row becomes its own card with
+     a label above every value instead of a truncated column. */
+  @media (max-width: 720px) {
+    main.admin { padding-left: 12px; padding-right: 12px; }
+    header.site, .site-divider { padding-left: 12px; padding-right: 12px; }
+
+    .toolbar { justify-content: flex-start; }
+    #refreshBtn { margin-left: auto; }
+
+    .grid-wrap { overflow-x: visible; }
+    table.list {
+      table-layout: auto;
+      display: block;
+      border: none;
+      background: none;
+      border-radius: 0;
+    }
+    table.list colgroup { display: none; }
+    table.list thead { display: none; }
+    table.list tbody { display: block; }
+    table.list tr {
+      display: block;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      margin-bottom: 12px;
+      padding: 4px 14px;
+    }
+    table.list td {
+      display: block;
+      width: auto;
+      max-width: none;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--border);
+      white-space: normal;
+      overflow: visible;
+      text-overflow: clip;
+    }
+    table.list tr td:last-child { border-bottom: none; }
+    table.list td:empty { display: none; }
+    table.list td::before {
+      content: attr(data-label);
+      display: block;
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    table.list td[data-label="Proof"] { display: flex; align-items: center; gap: 10px; }
+    table.list td[data-label="Proof"]::before { margin-bottom: 0; }
+    .row-actions { flex-direction: column; }
+    .row-actions button { width: 100%; padding: 10px 14px; font-size: 0.85rem; }
+  }
 </style>
 </head>
 <body>

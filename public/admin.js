@@ -231,15 +231,15 @@
       .join('<br>');
 
     tr.innerHTML = `
-      <td>${first.date}</td>
-      <td>${slotsHtml}</td>
-      <td>${group.length} slot${group.length > 1 ? 's' : ''}</td>
-      <td>${escapeHtml(first.name)}<div class="muted">₱${totalPrice} total</div></td>
-      <td>${escapeHtml(first.contact)}</td>
-      <td class="proof-cell"></td>
-      <td>${notesCellHtml(first.notes || '', first.notes || '')}</td>
-      <td><span class="status-badge status-pending">pending (${group.length})</span></td>
-      <td class="row-actions"></td>
+      <td data-label="Date">${first.date}</td>
+      <td data-label="Time">${slotsHtml}</td>
+      <td data-label="Court">${group.length} slot${group.length > 1 ? 's' : ''}</td>
+      <td data-label="Name">${escapeHtml(first.name)}<div class="muted">₱${totalPrice} total</div></td>
+      <td data-label="Contact">${escapeHtml(first.contact)}</td>
+      <td class="proof-cell" data-label="Proof"></td>
+      <td data-label="Notes">${notesCellHtml(first.notes || '', first.notes || '')}</td>
+      <td data-label="Status"><span class="status-badge status-pending">pending (${group.length})</span></td>
+      <td data-label="Actions"><div class="row-actions"></div></td>
     `;
 
     const proofCell = tr.querySelector('.proof-cell');
@@ -265,20 +265,20 @@
     const tr = document.createElement('tr');
     const priceLabel = b.price ? `₱${b.price}` : '';
     tr.innerHTML = `
-      <td>${b.date}</td>
-      <td>${fmtHour(b.hour)}</td>
-      <td>${courtName(b.courtId)}</td>
-      <td>${escapeHtml(b.name)}${priceLabel ? `<div class="muted">${priceLabel}</div>` : ''}</td>
-      <td>${escapeHtml(b.contact)}</td>
-      <td class="proof-cell"></td>
-      <td>${(() => {
+      <td data-label="Date">${b.date}</td>
+      <td data-label="Time">${fmtHour(b.hour)}</td>
+      <td data-label="Court">${courtName(b.courtId)}</td>
+      <td data-label="Name">${escapeHtml(b.name)}${priceLabel ? `<div class="muted">${priceLabel}</div>` : ''}</td>
+      <td data-label="Contact">${escapeHtml(b.contact)}</td>
+      <td class="proof-cell" data-label="Proof"></td>
+      <td data-label="Notes">${(() => {
         const parts = [];
         if (b.notes) parts.push(b.notes);
         if (b.rejectReason) parts.push(`Reason: ${b.rejectReason}`);
         return notesCellHtml(parts.join(' \u00b7 '), parts.join('\n'));
       })()}</td>
-      <td><span class="status-badge status-${b.status}">${b.status}</span></td>
-      <td class="row-actions"></td>
+      <td data-label="Status"><span class="status-badge status-${b.status}">${b.status}</span></td>
+      <td data-label="Actions"><div class="row-actions"></div></td>
     `;
 
     const proofCell = tr.querySelector('.proof-cell');
