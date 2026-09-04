@@ -50,7 +50,10 @@ app.get('/api/config', (req, res) => {
     closeHour: store.CLOSE_HOUR,
     pricePerHour: store.PRICE_PER_HOUR,
     currency: store.CURRENCY,
-    paymentInstructions: store.PAYMENT_INSTRUCTIONS,
+    paymentMethod: store.PAYMENT_METHOD,
+    paymentNumber: store.PAYMENT_NUMBER,
+    paymentName: store.PAYMENT_NAME,
+    paymentNote: store.PAYMENT_NOTE,
     maxSlotsPerBooking: store.MAX_SLOTS_PER_BOOKING,
   });
 });

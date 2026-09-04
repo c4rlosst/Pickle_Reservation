@@ -286,8 +286,16 @@
     totalRow.innerHTML = `<span>Total</span><span>₱${slots.length * CONFIG.pricePerHour}</span>`;
     list.appendChild(totalRow);
 
-    el('paymentAmount').textContent = `₱${slots.length * CONFIG.pricePerHour} for ${slots.length} slot${slots.length > 1 ? 's' : ''}`;
-    el('paymentInstructions').textContent = CONFIG.paymentInstructions;
+    el('paymentAmount').textContent = `₱${slots.length * CONFIG.pricePerHour}`;
+    el('paymentMethod').textContent = CONFIG.paymentMethod;
+    el('paymentNumber').textContent = CONFIG.paymentNumber;
+    el('paymentName').textContent = CONFIG.paymentName;
+    el('paymentNote').textContent = CONFIG.paymentNote;
+    const copyBtn = el('copyNumberBtn');
+    copyBtn.classList.remove('copied');
+    copyBtn.querySelector('.copy-icon').classList.remove('hidden');
+    copyBtn.querySelector('.check-icon').classList.add('hidden');
+    copyBtn.querySelector('.copy-btn-label').textContent = 'Copy';
     formError.textContent = '';
     bookingForm.reset();
     el('previewWrap').classList.add('hidden');
@@ -295,7 +303,7 @@
     el('fileUploadLabel').textContent = 'Upload screenshot';
     bookingForm.classList.remove('hidden');
     el('selectedSlotsList').classList.remove('hidden');
-    el('paymentAmount').parentElement.classList.remove('hidden');
+    el('paymentAmount').closest('.payment-box').classList.remove('hidden');
     successBox.classList.add('hidden');
     el('submitBtn').disabled = false;
     el('submitBtn').querySelector('span').textContent = 'SUBMIT FOR REVIEW';
@@ -310,6 +318,35 @@
   }
 
   el('backBtn').addEventListener('click', closeModal);
+
+  el('copyNumberBtn').addEventListener('click', async () => {
+    const btn = el('copyNumberBtn');
+    const number = el('paymentNumber').textContent;
+    try {
+      await navigator.clipboard.writeText(number);
+    } catch (err) {
+      // Fallback for browsers/contexts without Clipboard API access.
+      const tmp = document.createElement('textarea');
+      tmp.value = number;
+      tmp.style.position = 'fixed';
+      tmp.style.opacity = '0';
+      document.body.appendChild(tmp);
+      tmp.select();
+      document.execCommand('copy');
+      document.body.removeChild(tmp);
+    }
+    btn.classList.add('copied');
+    btn.querySelector('.copy-icon').classList.add('hidden');
+    btn.querySelector('.check-icon').classList.remove('hidden');
+    btn.querySelector('.copy-btn-label').textContent = 'Copied';
+    clearTimeout(btn._copyResetTimer);
+    btn._copyResetTimer = setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.querySelector('.copy-icon').classList.remove('hidden');
+      btn.querySelector('.check-icon').classList.add('hidden');
+      btn.querySelector('.copy-btn-label').textContent = 'Copy';
+    }, 1800);
+  });
   el('closeSuccessBtn').addEventListener('click', async () => {
     closeModal();
     selectedSlots.clear();
@@ -384,7 +421,7 @@
       }
       bookingForm.classList.add('hidden');
       el('selectedSlotsList').classList.add('hidden');
-      el('paymentAmount').parentElement.classList.add('hidden');
+      el('paymentAmount').closest('.payment-box').classList.add('hidden');
       successBox.classList.remove('hidden');
     } catch (err) {
       formError.textContent = 'Network error. Please try again.';

@@ -579,26 +579,100 @@ main {
 
 /* --- Payment box --- */
 .payment-box {
-  background: var(--green-soft);
-  border: 1px solid var(--green-ring);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 12px 14px;
+  padding: 14px;
   margin-bottom: 16px;
+}
+
+.payment-total-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-weight: 600;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
 }
 
 .payment-amount {
   font-weight: 800;
-  font-size: 1.1rem;
-  color: var(--green-strong);
-  margin-bottom: 4px;
+  font-size: 1.05rem;
+  color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
 
-.payment-instructions {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--green-ink);
-  line-height: 1.4;
+.payment-method-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.payment-method-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.payment-method-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.payment-number {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+.payment-name {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.copy-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 7px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease, transform 80ms ease;
+}
+
+.copy-btn:hover { border-color: var(--border-strong); background: var(--gray-soft); }
+.copy-btn:active { transform: scale(0.96); }
+
+.copy-btn.copied {
+  border-color: var(--green-ring);
+  background: var(--green-soft);
+  color: var(--green-strong);
+}
+
+.copy-btn .check-icon { color: var(--green-strong); }
+
+.payment-note {
+  margin: 12px 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.45;
   font-weight: 500;
 }
 
