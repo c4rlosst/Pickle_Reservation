@@ -713,6 +713,23 @@ main {
   box-shadow: 0 0 0 3px var(--green-soft);
 }
 
+.field input.invalid, .field textarea.invalid {
+  border-color: var(--danger);
+  background: #fef2f2;
+  animation: fieldShake 320ms ease-in-out;
+}
+
+.field input.invalid:focus, .field textarea.invalid:focus {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+}
+
+@keyframes fieldShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
 .file-upload {
   position: relative;
 }
@@ -769,6 +786,16 @@ main {
 }
 
 .file-upload.has-file .file-upload-btn svg { color: var(--green-strong); }
+
+.file-upload.invalid .file-upload-btn {
+  border-style: solid;
+  border-color: var(--danger);
+  color: var(--danger);
+  background: #fef2f2;
+  animation: fieldShake 320ms ease-in-out;
+}
+
+.file-upload.invalid .file-upload-btn svg { color: var(--danger); }
 
 .preview-wrap {
   margin-top: 10px;
@@ -864,6 +891,9 @@ main {
   width: 56px;
   height: 56px;
   margin: 0 auto 14px;
+  border-radius: 50%;
+  opacity: 0;
+  animation: successGlow 900ms ease-out 500ms forwards;
 }
 
 .success-icon-svg { width: 100%; height: 100%; display: block; overflow: visible; }
@@ -871,7 +901,8 @@ main {
 .success-icon-circle {
   fill: var(--green);
   transform-origin: 26px 26px;
-  animation: successPop 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  transform: scale(0);
+  animation: successPop 460ms cubic-bezier(0.34, 1.56, 0.64, 1) 500ms both;
 }
 
 .success-icon-check {
@@ -882,12 +913,12 @@ main {
   stroke-linejoin: round;
   stroke-dasharray: 40;
   stroke-dashoffset: 40;
-  animation: successCheck 280ms ease-out 260ms forwards;
+  animation: successCheck 280ms ease-out 780ms forwards;
 }
 
 @keyframes successPop {
   0% { transform: scale(0); opacity: 0; }
-  60% { transform: scale(1.08); opacity: 1; }
+  60% { transform: scale(1.1); opacity: 1; }
   100% { transform: scale(1); }
 }
 
@@ -895,8 +926,15 @@ main {
   to { stroke-dashoffset: 0; }
 }
 
+@keyframes successGlow {
+  0% { opacity: 0; box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+  55% { opacity: 1; box-shadow: 0 0 0 10px rgba(34, 197, 94, 0.22), 0 0 32px 8px rgba(34, 197, 94, 0.65); }
+  100% { opacity: 1; box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.12), 0 0 20px 4px rgba(34, 197, 94, 0.4); }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .success-icon-circle, .success-icon-check { animation: none; }
+  .success-icon { animation: none; opacity: 1; box-shadow: 0 0 16px 3px rgba(34, 197, 94, 0.35); }
+  .success-icon-circle, .success-icon-check { animation: none; transform: scale(1); }
   .success-icon-check { stroke-dashoffset: 0; }
 }
 

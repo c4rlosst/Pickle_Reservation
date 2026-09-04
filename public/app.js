@@ -318,6 +318,9 @@
     copyBtn.querySelector('.copy-btn-label').textContent = 'Copy';
     formError.textContent = '';
     bookingForm.reset();
+    el('name').classList.remove('invalid');
+    el('contact').classList.remove('invalid');
+    el('screenshot').closest('.file-upload').classList.remove('invalid');
     el('previewWrap').classList.add('hidden');
     el('screenshot').closest('.file-upload').classList.remove('has-file');
     el('fileUploadLabel').textContent = 'Upload screenshot';
@@ -413,22 +416,42 @@
     return null;
   }
 
+  // Clear a field's red "invalid" highlight as soon as the customer
+  // starts fixing it.
+  el('name').addEventListener('input', () => el('name').classList.remove('invalid'));
+  el('contact').addEventListener('input', () => el('contact').classList.remove('invalid'));
+  el('screenshot').addEventListener('change', () => {
+    if (el('screenshot').files[0]) {
+      el('screenshot').closest('.file-upload').classList.remove('invalid');
+    }
+  });
+
   bookingForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (selectedSlots.size === 0) return;
     formError.textContent = '';
+    el('name').classList.remove('invalid');
+    el('contact').classList.remove('invalid');
+    el('screenshot').closest('.file-upload').classList.remove('invalid');
+
+    const nameValue = el('name').value.trim();
+    if (!nameValue) {
+      el('name').classList.add('invalid');
+      el('name').focus();
+      return;
+    }
 
     const contactValue = el('contact').value.trim();
     const contactError = validateContact(contactValue);
     if (contactError) {
-      formError.textContent = contactError;
+      el('contact').classList.add('invalid');
       el('contact').focus();
       return;
     }
 
     const fileInput = el('screenshot');
     if (!fileInput.files[0]) {
-      formError.textContent = 'Please attach a screenshot of your payment.';
+      el('screenshot').closest('.file-upload').classList.add('invalid');
       return;
     }
 
