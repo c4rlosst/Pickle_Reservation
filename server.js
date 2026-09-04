@@ -1,48 +1,23 @@
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
-const fs = require('fs');
 const crypto = require('crypto');
-const { Readable } = require('stream');
 const multer = require('multer');
 const store = require('./lib/store');
+const { getSupabase } = require('./lib/supabaseClient');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
-
-// On Vercel the filesystem is read-only outside /tmp, so uploaded payment
-// screenshots can't live on local disk there. When a Blob store is
-// connected to the project, Vercel sets BLOB_STORE_ID and the SDK
-// authenticates automatically via a short-lived OIDC token (the
-// recommended default -- no static secret to manage); a static
-// BLOB_READ_WRITE_TOKEN also works if that's what's configured instead.
-// Everywhere else (local dev, a VPS, Render, etc.) screenshots stay on
-// local disk exactly as before.
-const USE_BLOB = Boolean(process.env.BLOB_STORE_ID || process.env.BLOB_READ_WRITE_TOKEN);
-let blobApi = null;
-if (USE_BLOB) {
-  blobApi = require('@vercel/blob');
-}
-
-const UPLOADS_DIR = path.join(__dirname, 'uploads');
-if (!USE_BLOB) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-}
+const SCREENSHOT_BUCKET = 'screenshots';
 
 // --- Screenshot upload handling ---------------------------------------------
+// Screenshots are stored in a private Supabase Storage bucket (shared across
+// facilities, namespaced by facility id) rather than local disk, since the
+// deployment target (Vercel) has a read-only filesystem outside /tmp.
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif']);
 
 const upload = multer({
-  storage: USE_BLOB
-    ? multer.memoryStorage()
-    : multer.diskStorage({
-        destination: (req, file, cb) => cb(null, UPLOADS_DIR),
-        filename: (req, file, cb) => {
-          const ext = path.extname(file.originalname || '').slice(0, 10) || '.jpg';
-          cb(null, crypto.randomBytes(20).toString('hex') + ext);
-        },
-      }),
+  storage: multer.memoryStorage(),
   limits: { fileSize: 8 * 1024 * 1024 }, // 8MB
   fileFilter: (req, file, cb) => {
     if (ALLOWED_MIME.has(file.mimetype)) return cb(null, true);
@@ -50,67 +25,56 @@ const upload = multer({
   },
 });
 
-// When storing in Blob, multer only gives us a buffer (no filename), so we
-// generate the same kind of random name ourselves before uploading it.
 function randomFilename(file) {
   const ext = path.extname(file.originalname || '').slice(0, 10) || '.jpg';
   return crypto.randomBytes(20).toString('hex') + ext;
 }
 
 async function saveUploadedFile(file) {
-  if (!USE_BLOB) return file.filename; // multer already wrote it to disk
-  const filename = randomFilename(file);
-  // Private access: the blob is only ever readable by a request carrying
-  // this project's Blob credentials (via the SDK), never a public URL --
-  // see the admin screenshot route below, which is the only thing that
-  // ever reads it back.
-  await blobApi.put(filename, file.buffer, {
-    access: 'private',
-    addRandomSuffix: false,
+  const supabase = getSupabase();
+  const objectPath = `${store.FACILITY_ID}/${randomFilename(file)}`;
+  const { error } = await supabase.storage.from(SCREENSHOT_BUCKET).upload(objectPath, file.buffer, {
     contentType: file.mimetype,
+    upsert: false,
   });
-  return filename;
+  if (error) throw error;
+  return objectPath;
 }
 
-async function deleteUploadedFile(filename) {
-  if (!filename) return;
-  if (USE_BLOB) {
-    try {
-      await blobApi.del(filename);
-    } catch (e) {
-      // Best-effort cleanup only -- don't fail the request over it.
-    }
-    return;
+async function deleteUploadedFile(objectPath) {
+  if (!objectPath) return;
+  try {
+    const supabase = getSupabase();
+    await supabase.storage.from(SCREENSHOT_BUCKET).remove([objectPath]);
+  } catch (e) {
+    // Best-effort cleanup only -- don't fail the request over it.
   }
-  fs.unlink(path.join(UPLOADS_DIR, filename), () => {});
 }
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- Admin auth middleware -------------------------------------------------
-function requireAdmin(req, res, next) {
-  const supplied = req.get('x-admin-password') || req.body?.password || req.query?.pw;
-  if (supplied && supplied === ADMIN_PASSWORD) return next();
-  return res.status(401).json({ error: 'Unauthorized' });
+// Each deployment serves one facility (FACILITY_SLUG), and that facility's
+// admin password (bcrypt-hashed in the database) is what's checked here --
+// there's no shared/global admin password across facilities.
+async function requireAdmin(req, res, next) {
+  try {
+    const supplied = req.get('x-admin-password') || req.body?.password || req.query?.pw;
+    if (supplied && (await store.verifyAdminPassword(supplied))) return next();
+    res.status(401).json({ error: 'Unauthorized' });
+  } catch (err) {
+    res.status(500).json({ error: 'Could not verify admin password.' });
+  }
 }
 
 // --- Public config -----------------------------------------------------------
-app.get('/api/config', (req, res) => {
-  res.json({
-    courts: store.COURTS,
-    hours: store.HOURS,
-    openHour: store.OPEN_HOUR,
-    closeHour: store.CLOSE_HOUR,
-    pricePerHour: store.PRICE_PER_HOUR,
-    currency: store.CURRENCY,
-    paymentMethod: store.PAYMENT_METHOD,
-    paymentNumber: store.PAYMENT_NUMBER,
-    paymentName: store.PAYMENT_NAME,
-    paymentNote: store.PAYMENT_NOTE,
-    locationMapsUrl: store.LOCATION_MAPS_URL,
-    maxSlotsPerBooking: store.MAX_SLOTS_PER_BOOKING,
-  });
+app.get('/api/config', async (req, res) => {
+  try {
+    res.json(await store.getConfig());
+  } catch (err) {
+    res.status(500).json({ error: 'Could not load config.' });
+  }
 });
 
 // --- Public bookings ---------------------------------------------------------
@@ -138,7 +102,7 @@ app.post('/api/bookings', (req, res) => {
     if (uploadErr) {
       return res.status(400).json({ error: uploadErr.message, code: 'INVALID' });
     }
-    let filename = null;
+    let objectPath = null;
     try {
       if (!req.file) {
         const err = new Error('A payment screenshot is required.');
@@ -155,13 +119,13 @@ app.post('/api/bookings', (req, res) => {
         throw err;
       }
 
-      filename = await saveUploadedFile(req.file);
+      objectPath = await saveUploadedFile(req.file);
 
       const { groupId, bookings } = await store.createBookings(slots, {
         name: req.body?.name,
         contact: req.body?.contact,
         notes: req.body?.notes,
-        screenshotFilename: filename,
+        screenshotFilename: objectPath,
       });
 
       res.status(201).json({
@@ -177,7 +141,7 @@ app.post('/api/bookings', (req, res) => {
       });
     } catch (err) {
       // Clean up the uploaded file if the booking itself failed validation
-      if (filename) deleteUploadedFile(filename);
+      if (objectPath) deleteUploadedFile(objectPath);
       const status = err.code === 'TAKEN' ? 409 : 400;
       res.status(status).json({ error: err.message, code: err.code });
     }
@@ -185,17 +149,22 @@ app.post('/api/bookings', (req, res) => {
 });
 
 // --- Admin routes --------------------------------------------------------------
-app.post('/api/admin/login', (req, res) => {
-  const { password } = req.body || {};
-  if (password === ADMIN_PASSWORD) return res.json({ ok: true });
-  res.status(401).json({ ok: false, error: 'Incorrect password' });
+app.post('/api/admin/login', async (req, res) => {
+  try {
+    const { password } = req.body || {};
+    if (await store.verifyAdminPassword(password)) return res.json({ ok: true });
+    res.status(401).json({ ok: false, error: 'Incorrect password' });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: 'Could not verify password.' });
+  }
 });
 
 app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
   try {
+    const supplied = req.get('x-admin-password') || req.body?.password || req.query?.pw;
     const bookings = (await store.listAllBookings()).map((b) => ({
       ...b,
-      screenshotUrl: b.screenshotFilename ? `/api/admin/screenshots/${b.screenshotFilename}?pw=${encodeURIComponent(ADMIN_PASSWORD)}` : null,
+      screenshotUrl: b.screenshotFilename ? `/api/admin/screenshots/${b.screenshotFilename}?pw=${encodeURIComponent(supplied)}` : null,
     }));
     res.json({ bookings });
   } catch (err) {
@@ -203,26 +172,25 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
   }
 });
 
-// Serve payment screenshots only to authenticated admins. Filenames are
-// random/unguessable, and this route additionally requires the admin
-// password, so screenshots are never exposed on the public site.
-app.get('/api/admin/screenshots/:filename', requireAdmin, async (req, res) => {
-  const filename = path.basename(req.params.filename); // prevent path traversal
-  if (USE_BLOB) {
-    try {
-      const result = await blobApi.get(filename, { access: 'private' });
-      if (!result || result.statusCode !== 200) return res.status(404).json({ error: 'Not found' });
-      res.setHeader('Content-Type', result.blob.contentType || 'application/octet-stream');
-      res.setHeader('Cache-Control', 'private, no-store');
-      Readable.fromWeb(result.stream).pipe(res);
-    } catch (err) {
-      res.status(500).json({ error: 'Could not load screenshot.' });
-    }
-    return;
+// Serve payment screenshots only to authenticated admins: this route checks
+// the admin password itself, then hands back a short-lived (60s) signed URL
+// from the private bucket -- the browser is redirected straight to Supabase
+// Storage rather than proxying bytes through this function.
+app.get('/api/admin/screenshots/:objectPath(.*)', requireAdmin, async (req, res) => {
+  const objectPath = req.params.objectPath;
+  // Only ever allow serving a screenshot that belongs to this deployment's
+  // own facility, even though the underlying bucket is shared.
+  if (!objectPath.startsWith(`${store.FACILITY_ID}/`)) {
+    return res.status(404).json({ error: 'Not found' });
   }
-  const filePath = path.join(UPLOADS_DIR, filename);
-  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Not found' });
-  res.sendFile(filePath);
+  try {
+    const supabase = getSupabase();
+    const { data, error } = await supabase.storage.from(SCREENSHOT_BUCKET).createSignedUrl(objectPath, 60);
+    if (error || !data?.signedUrl) return res.status(404).json({ error: 'Not found' });
+    res.redirect(data.signedUrl);
+  } catch (err) {
+    res.status(500).json({ error: 'Could not load screenshot.' });
+  }
 });
 
 app.post('/api/admin/block', requireAdmin, async (req, res) => {

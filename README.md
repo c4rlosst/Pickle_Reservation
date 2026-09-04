@@ -1,35 +1,42 @@
-# FORA Pickleball — Court Booking
+# Pickleball Court Booking — multi-facility
 
-A booking site for a 3-court pickleball facility with manual payment
-verification: customers pick a date, see an hourly availability grid for all
-3 courts, and book a slot by uploading a screenshot of their payment. The
-slot is held as **Pending** until the admin reviews the screenshot in the
-admin dashboard and either **Confirms** it (payment verified, slot booked)
-or **Rejects** it (slot re-opens for others).
+A booking site for pickleball court facilities with manual payment
+verification: customers pick a date, see an hourly availability grid for
+that facility's courts, and book a slot by uploading a screenshot of their
+payment. The slot is held as **Pending** until the admin reviews the
+screenshot in the admin dashboard and either **Confirms** it (payment
+verified, slot booked) or **Rejects** it (slot re-opens for others).
+
+This one codebase can serve multiple separate facilities (e.g. FORA, J&P)
+from a single shared Supabase database -- each facility gets its own
+deployment, courts, pricing, payment info, and admin login, but none of
+them can ever see or touch another facility's bookings. See "Multi-facility
+setup" below.
 
 ## Stack
 
-Plain Node.js + Express backend, vanilla HTML/CSS/JS frontend. Locally (or
-on any host with a persistent disk, like a VPS or Render) it stores bookings
-in a small JSON file (`data/db.json`) and payment screenshots on disk under
-`uploads/` — no external database required. On Vercel, whose serverless
-functions have a read-only filesystem, it automatically switches to Vercel
-Blob (screenshots) and a Redis store via the Vercel Marketplace (bookings)
-instead — see "Deploying to Vercel" below. Screenshots are only ever served
-to authenticated admin requests (never linked from the public site) either
-way.
+Node.js + Express backend, vanilla HTML/CSS/JS frontend, [Supabase](https://supabase.com)
+(Postgres) for booking data and Supabase Storage (a private bucket) for
+payment screenshots. There is no local-file storage mode anymore -- every
+environment (local dev included) talks to the same Supabase project.
 
 ## Getting started
 
-```bash
-npm install
-cp .env.example .env   # then edit .env and set your own ADMIN_PASSWORD
-npm start
-```
+1. Create a Supabase project, then run `supabase/001_init.sql` and
+   `supabase/002_seed.sql` (in that order) in its **SQL Editor**. This
+   creates the `facilities` and `bookings` tables and seeds a couple of
+   example facilities.
+2. In the Supabase dashboard, go to **Storage** → **New bucket** → name it
+   `screenshots` → leave **Public bucket** off (private).
+3. Copy `.env.example` to `.env` and fill in `SUPABASE_URL` and
+   `SUPABASE_SERVICE_ROLE_KEY` (Project Settings → API), plus
+   `FACILITY_SLUG` (which facility row this instance serves, e.g. `fora`).
+4. `npm install && npm start`
 
 Visit http://localhost:3000 for the public booking page and
-http://localhost:3000/admin.html for the admin dashboard (default password
-`admin123` unless you changed it in `.env`).
+http://localhost:3000/admin.html for the admin dashboard. The seeded admin
+password is `admin123` for every facility until you change it (see
+"Changing an admin password" below).
 
 ## How booking works
 
@@ -39,17 +46,18 @@ http://localhost:3000/admin.html for the admin dashboard (default password
    cells turn green.
 2. A summary bar appears below the grid ("N slots selected · ₱total").
    Clicking **Book selected** opens a modal listing every selected slot
-   and the total price, plus your payment instructions (GCash number,
-   etc. — edit these in `lib/store.js`).
+   and the total price, plus that facility's payment instructions.
 3. Customer enters their name, phone/email, and uploads **one** screenshot
    covering the whole payment (even if it's for multiple slots), then
-   submits. Up to `MAX_SLOTS_PER_BOOKING` slots (12 by default) can be
+   submits. Up to `max_slots_per_booking` slots (12 by default) can be
    submitted together.
 4. All selected slots are created together as one "group" and immediately
    show as **Pending** to everyone else, so nobody else can book them
    while under review. If any of the selected slots was taken in the
    meantime, the whole submission is rejected (nothing is partially
-   booked) and the customer is asked to reselect.
+   booked) and the customer is asked to reselect. This is enforced twice:
+   a fast application-level check, and a database unique index as the real
+   guarantee against a race between two simultaneous bookings.
 5. In the admin dashboard, pending bookings from the same submission are
    shown as a single row (since they share one payment screenshot) with a
    thumbnail (click to view full size). You either:
@@ -61,73 +69,79 @@ http://localhost:3000/admin.html for the admin dashboard (default password
    just one of them if needed (e.g. the customer only wants to cancel one
    court out of several), which re-opens that slot.
 7. Any booking can be permanently **Deleted** from the admin dashboard,
-   which also removes its uploaded screenshot from disk.
+   which also removes its uploaded screenshot from storage.
+8. In **Block a slot**, the hour picker shows which times are already taken
+   for the selected court/date -- green (available), yellow/struck-through
+   (pending), or red/struck-through (booked/blocked) -- so staff have a
+   clear view of what can actually be blocked.
+
+## Multi-facility setup
+
+Every table has a `facility_id` column, so one Supabase project can safely
+hold many facilities at once. Adding a new one:
+
+1. Insert a row into `facilities` (courts, hours, pricing, payment info,
+   and a bcrypt-hashed admin password -- ask an assistant, or use any
+   online bcrypt generator, to hash the password you want).
+2. Create a new Vercel project pointing at this **same** GitHub repo (no
+   forking needed -- it's the same code for every facility).
+3. Set that project's environment variables: the same `SUPABASE_URL` /
+   `SUPABASE_SERVICE_ROLE_KEY` as every other facility, but its own
+   `FACILITY_SLUG` matching the new row's id.
+4. Deploy, and optionally attach a custom domain for that facility.
+
+No new database, storage bucket, or per-facility infrastructure is needed
+-- the whole point of the shared-database design is that onboarding a new
+facility is just a database row and a small Vercel project.
+
+### Changing an admin password
+
+There's no in-app "change password" screen yet. To change one, generate a
+bcrypt hash of the new password (ask an assistant, or `node -e
+"console.log(require('bcryptjs').hashSync('new-password', 10))"` with
+`bcryptjs` installed) and update that facility's `admin_password_hash`
+column via the Supabase SQL Editor or Table Editor.
 
 ## Deploying to Vercel
 
-Vercel's serverless functions run on a read-only filesystem (only `/tmp` is
-writable), so the local JSON-file/disk storage above can't be used there —
-without the two integrations below, the app crashes on startup instead.
+`vercel.json` and `api/index.js` are already set up to run the whole
+Express app as one serverless function (Vercel's filesystem is read-only
+outside `/tmp`, which is why storage lives in Supabase rather than on
+disk).
 
 1. **Push this repo to Vercel** (import the GitHub repo, or `vercel deploy`).
-   `vercel.json` and `api/index.js` are already set up to run the whole
-   Express app as one serverless function.
-2. **Add screenshot storage:** in the Vercel project, go to Storage → Create
-   Database → **Blob**, and set access to **Private** (payment screenshots
-   are sensitive -- private means every read requires this project's
-   credentials, unlike public blobs which are readable by anyone with the
-   URL). This sets `BLOB_READ_WRITE_TOKEN` automatically; no code changes
-   needed.
-3. **Add a bookings database:** in the same Storage tab, add a **Redis**
-   integration (e.g. Upstash Redis) from the Marketplace. This sets
-   `KV_REST_API_URL` / `KV_REST_API_TOKEN` automatically.
-4. **Set `ADMIN_PASSWORD`** under Project Settings → Environment Variables
-   (falls back to `admin123` if unset — change this before going live).
-5. Redeploy so the new environment variables take effect.
-
-Without step 2 the app will crash immediately on any request (the original
-"Serverless Function has crashed" error); without step 3 it'll run but every
-booking will vanish the moment the serverless instance recycles. Both are
-required for a real deployment.
-
-## Configuration
-
-Edit the constants at the top of `lib/store.js` to change:
-
-- `COURTS` — court names/IDs (currently Court 1, 2, 3)
-- `OPEN_HOUR` / `CLOSE_HOUR` — operating hours (currently 6:00–22:00, hourly slots)
-- `PRICE_PER_HOUR`, `CURRENCY` — price shown to customers
-- `PAYMENT_INSTRUCTIONS` — where/how customers should send payment (GCash
-  number, bank details, etc.) — **update this with your real payment info**
-  before going live.
-
-Admin password is set via the `ADMIN_PASSWORD` environment variable (see
-`.env.example`).
+2. Under Project Settings → Environment Variables, set `SUPABASE_URL`,
+   `SUPABASE_SERVICE_ROLE_KEY`, and `FACILITY_SLUG` for this deployment.
+3. Redeploy so the new environment variables take effect.
 
 ## Project structure
 
 ```
-server.js            Express app, API routes, screenshot upload handling (multer)
-api/index.js            Vercel serverless entry point (re-exports server.js)
-vercel.json              Routes every request on Vercel to api/index.js
-lib/store.js          Booking data + business rules (courts, hours, statuses, double-booking checks)
-data/db.json           Booking data -- local/disk mode only (auto-created, gitignored)
-uploads/                Payment screenshots -- local/disk mode only (auto-created, gitignored)
-public/index.html      Public booking page
-public/app.js            Public booking page logic
-public/admin.html      Admin dashboard
-public/admin.js          Admin dashboard logic (review, confirm/reject, block, cancel, delete)
-public/style.css       Shared styling
+server.js                Express app, API routes, screenshot upload handling (multer)
+api/index.js                Vercel serverless entry point (re-exports server.js)
+vercel.json                  Routes every request on Vercel to api/index.js
+lib/store.js              Booking data + business rules, scoped to FACILITY_SLUG
+lib/supabaseClient.js       Shared server-side Supabase client (service_role key)
+supabase/001_init.sql     Table/index definitions -- run once per Supabase project
+supabase/002_seed.sql       Example facility rows -- edit/extend as you add facilities
+public/index.html          Public booking page
+public/app.js                Public booking page logic
+public/admin.html          Admin dashboard
+public/admin.js              Admin dashboard logic (review, confirm/reject, block, cancel, delete)
+public/style.css           Shared styling
 ```
 
 ## Notes
 
-- Double-booking is prevented server-side: a court/hour can only be held by
-  one pending/confirmed/blocked booking at a time.
+- Double-booking is prevented both in the application and by a database
+  unique index (`facility_id, court_id, date, hour` for active bookings) --
+  a genuine race between two simultaneous bookings can't create a
+  duplicate.
 - The public grid never shows a booker's phone/email or screenshot — only
-  their initials once pending/confirmed.
-- Payment screenshots are served only through an admin-authenticated route
-  with randomized, unguessable filenames — not linked anywhere public.
-- This is intentionally simple (file-based storage) and meant to run as a
-  single small Node process. For production use behind a real domain, put it
-  behind HTTPS.
+  their name once pending/confirmed.
+- Payment screenshots live in a private Supabase Storage bucket. They're
+  only ever reachable through an admin-password-gated route, which hands
+  back a 60-second signed URL -- never a public link.
+- Every database/storage call uses the `SUPABASE_SERVICE_ROLE_KEY`, which
+  bypasses Row Level Security -- that key must only ever be set as a
+  server-side environment variable, never shipped to the browser.
