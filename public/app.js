@@ -50,11 +50,25 @@
   }
 
   // "01:00 PM" style label for a one-hour slot starting at `h` (24h).
-  function fmtTime(h) {
-    const period = h >= 12 && h < 24 ? 'PM' : 'AM';
+  // Converts a 24h hour (can wrap past 24, e.g. 24 -> 0 next day) to a
+  // { hour, period } 12h pair.
+  function to12Hour(hRaw) {
+    const h = ((hRaw % 24) + 24) % 24;
+    const period = h >= 12 ? 'PM' : 'AM';
     let hour = h % 12;
     if (hour === 0) hour = 12;
-    return `${String(hour).padStart(2, '0')}:00 ${period}`;
+    return { hour, period };
+  }
+
+  // One-hour slot range label, e.g. "1\u201302 PM" or "11 AM\u201312 PM" when it
+  // crosses noon/midnight, so it's clear at a glance how long the slot is.
+  function fmtTime(h) {
+    const start = to12Hour(h);
+    const end = to12Hour(h + 1);
+    if (start.period === end.period) {
+      return `${start.hour}\u2013${end.hour} ${start.period}`;
+    }
+    return `${start.hour} ${start.period}\u2013${end.hour} ${end.period}`;
   }
 
   // "6 AM" style label for a single hour boundary (used for the venue meta row).
