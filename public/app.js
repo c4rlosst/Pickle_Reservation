@@ -122,6 +122,17 @@
     return slotTime.getTime() < now.getTime();
   }
 
+  // The platform fee is charged ONCE per booking transaction (one payment,
+  // one screenshot), not once per slot -- a customer booking 6 slots in one
+  // go still only pays it a single time.
+  function courtsSubtotal(n) {
+    return n * CONFIG.pricePerHour;
+  }
+
+  function transactionTotal(n) {
+    return courtsSubtotal(n) + (CONFIG.platformFee || 0);
+  }
+
   function updateSummaryBar() {
     const n = selectedSlots.size;
     if (n === 0) {
@@ -131,7 +142,7 @@
       bookSelectedBtn.disabled = true;
       return;
     }
-    const total = n * CONFIG.pricePerHour;
+    const total = transactionTotal(n);
     summaryText.textContent = `${n} slot${n > 1 ? 's' : ''} selected · ₱${total} total`;
     summaryText.classList.remove('hidden');
     clearSelectionBtn.disabled = false;
@@ -309,12 +320,25 @@
       `;
       list.appendChild(row);
     });
+    const fee = CONFIG.platformFee || 0;
+    if (fee > 0) {
+      const subtotalRow = document.createElement('div');
+      subtotalRow.className = 'selected-slot-row selected-slots-subtotal';
+      subtotalRow.innerHTML = `<span class="slot-info">Courts subtotal</span><span class="slot-price">₱${courtsSubtotal(slots.length)}</span>`;
+      list.appendChild(subtotalRow);
+
+      const feeRow = document.createElement('div');
+      feeRow.className = 'selected-slot-row selected-slots-subtotal';
+      feeRow.innerHTML = `<span class="slot-info">Service fee</span><span class="slot-price">₱${fee}</span>`;
+      list.appendChild(feeRow);
+    }
+
     const totalRow = document.createElement('div');
     totalRow.className = 'selected-slots-total';
-    totalRow.innerHTML = `<span>Total</span><span>₱${slots.length * CONFIG.pricePerHour}</span>`;
+    totalRow.innerHTML = `<span>Total</span><span>₱${transactionTotal(slots.length)}</span>`;
     list.appendChild(totalRow);
 
-    el('paymentAmount').textContent = `₱${slots.length * CONFIG.pricePerHour}`;
+    el('paymentAmount').textContent = `₱${transactionTotal(slots.length)}`;
     el('paymentMethod').textContent = CONFIG.paymentMethod;
     el('paymentNumber').textContent = CONFIG.paymentNumber;
     el('paymentName').textContent = CONFIG.paymentName;

@@ -158,12 +158,22 @@
     CONFIG = await res.json();
   }
 
+  // Local calendar date as YYYY-MM-DD -- NOT toISOString(), which is UTC
+  // and rolls back to "yesterday" for anyone east of UTC (e.g. PHT, UTC+8)
+  // once local time is past midnight but UTC hasn't rolled over yet.
+  function todayLocalStr() {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
   function populateBlockForm() {
     const courtSel = el('blockCourt');
     courtSel.innerHTML = CONFIG.courts.map((c) => `<option value="${c.id}">${c.name}</option>`).join('');
 
-    const today = new Date();
-    el('blockDate').value = today.toISOString().slice(0, 10);
+    el('blockDate').value = todayLocalStr();
 
     selectedBlockHours.clear();
     const hoursWrap = el('blockHours');
@@ -301,26 +311,34 @@
     tbody.innerHTML = '';
     if (bookings.length === 0) {
       tbody.innerHTML = '<tr><td colspan="9" class="muted" style="text-align:center;padding:24px;">No bookings found.</td></tr>';
+      el('reservationCount').textContent = '';
       return;
     }
 
-    // Group pending bookings that came from the same submission (same
-    // groupId) into a single row, since they share one payment screenshot
-    // and get confirmed/rejected together. Reviewed bookings are shown
-    // individually so each slot can be cancelled/deleted on its own.
+    // Every customer submission (one payment, one screenshot) shares a
+    // single groupId, however many court/hour slots it covers -- that's one
+    // reservation/transaction, so it's always rendered as one row and acted
+    // on as one unit, at every status (pending, confirmed, rejected,
+    // cancelled). Only groupId-less rows (admin-blocked slots, or a rare
+    // legacy row from before groupId existed) render individually.
     const renderedGroups = new Set();
+    let reservationCount = 0;
 
     bookings.forEach((b) => {
-      const isGroupable = b.status === 'pending' && b.groupId;
+      const isGroupable = Boolean(b.groupId);
       if (isGroupable) {
-        if (renderedGroups.has(b.groupId)) return; // already rendered with the group
-        renderedGroups.add(b.groupId);
-        const groupBookings = bookings.filter((x) => x.groupId === b.groupId && x.status === 'pending');
+        const key = `${b.groupId}|${b.status}`;
+        if (renderedGroups.has(key)) return; // already rendered with the group
+        renderedGroups.add(key);
+        const groupBookings = bookings.filter((x) => x.groupId === b.groupId && x.status === b.status);
         renderGroupRow(tbody, groupBookings);
       } else {
         renderSingleRow(tbody, b);
       }
+      reservationCount += 1;
     });
+
+    el('reservationCount').textContent = `${reservationCount} reservation${reservationCount === 1 ? '' : 's'}`;
   }
 
   function addCardToggle(tr, actionsDiv) {
@@ -335,13 +353,26 @@
     actionsDiv.insertBefore(toggleBtn, actionsDiv.firstChild);
   }
 
+  // A group's total is what the customer actually paid: the courts
+  // subtotal (sum of each slot's price) plus the platform fee charged ONCE
+  // for the whole transaction -- never once per slot. Only real paid
+  // transactions carry a groupId (blocked slots don't), so this is safe to
+  // apply to every group unconditionally.
+  function groupTotal(group) {
+    const subtotal = group.reduce((sum, b) => sum + (b.price || 0), 0);
+    return subtotal + (CONFIG.platformFee || 0);
+  }
+
   function renderGroupRow(tbody, group) {
     const tr = document.createElement('tr');
     const first = group[0];
-    const totalPrice = group.reduce((sum, b) => sum + (b.price || 0), 0);
+    const totalPrice = groupTotal(group);
     const slotsHtml = group
       .map((b) => `${fmtHour(b.hour)} <span class="muted">${courtName(b.courtId)}</span>`)
       .join('<br>');
+    const notesParts = [];
+    if (first.notes) notesParts.push(first.notes);
+    if (first.rejectReason) notesParts.push(`Reason: ${first.rejectReason}`);
 
     tr.innerHTML = `
       <td data-label="Date">${first.date}</td>
@@ -350,8 +381,8 @@
       <td data-label="Name">${escapeHtml(first.name)}<div class="muted">₱${totalPrice} total</div></td>
       <td data-label="Contact" data-collapsible="true">${escapeHtml(first.contact)}</td>
       <td class="proof-cell" data-label="Proof" data-collapsible="true"></td>
-      <td data-label="Notes" data-collapsible="true">${notesCellHtml(first.notes || '', first.notes || '')}</td>
-      <td data-label="Status"><span class="status-badge status-pending">pending (${group.length})</span></td>
+      <td data-label="Notes" data-collapsible="true">${notesCellHtml(notesParts.join(' · '), notesParts.join('\n'))}</td>
+      <td data-label="Status"><span class="status-badge status-${first.status}">${first.status} (${group.length})</span></td>
       <td data-label="Actions"><div class="row-actions"></div></td>
     `;
 
@@ -359,17 +390,35 @@
     addProofThumb(proofCell, first);
 
     const actionsTd = tr.querySelector('.row-actions');
-    const confirmBtn = document.createElement('button');
-    confirmBtn.textContent = `Confirm all (${group.length})`;
-    confirmBtn.className = 'confirm';
-    confirmBtn.addEventListener('click', () => confirmGroup(first.groupId, group.length));
-    actionsTd.appendChild(confirmBtn);
+    const ids = group.map((b) => b.id);
 
-    const rejectBtn = document.createElement('button');
-    rejectBtn.textContent = 'Reject all';
-    rejectBtn.className = 'reject';
-    rejectBtn.addEventListener('click', () => rejectGroup(first.groupId));
-    actionsTd.appendChild(rejectBtn);
+    if (first.status === 'pending') {
+      const confirmBtn = document.createElement('button');
+      confirmBtn.textContent = `Confirm all (${group.length})`;
+      confirmBtn.className = 'confirm';
+      confirmBtn.addEventListener('click', () => confirmGroup(first.groupId, group.length));
+      actionsTd.appendChild(confirmBtn);
+
+      const rejectBtn = document.createElement('button');
+      rejectBtn.textContent = 'Reject all';
+      rejectBtn.className = 'reject';
+      rejectBtn.addEventListener('click', () => rejectGroup(first.groupId));
+      actionsTd.appendChild(rejectBtn);
+    }
+
+    if (first.status === 'confirmed') {
+      const cancelBtn = document.createElement('button');
+      cancelBtn.textContent = `Cancel all (${group.length})`;
+      cancelBtn.addEventListener('click', () => cancelGroup(ids));
+      actionsTd.appendChild(cancelBtn);
+    }
+
+    if (first.status !== 'pending') {
+      const deleteBtn = document.createElement('button');
+      deleteBtn.textContent = `Delete all (${group.length})`;
+      deleteBtn.addEventListener('click', () => deleteGroup(ids));
+      actionsTd.appendChild(deleteBtn);
+    }
 
     addCardToggle(tr, actionsTd);
     tbody.appendChild(tr);
@@ -508,6 +557,39 @@
         showToast('Booking deleted', 'success');
         await loadBookings();
       }
+    } catch (e) {}
+  }
+
+  // Whole-transaction versions of cancel/delete -- a customer's multi-slot
+  // booking is one reservation, so cancelling or deleting it acts on every
+  // slot in that group at once rather than leaving some behind.
+  async function cancelGroup(ids) {
+    const label = ids.length > 1 ? `all ${ids.length} slots` : 'this booking';
+    const ok = await showConfirm(`Cancel ${label} and re-open ${ids.length > 1 ? 'them' : 'it'}?`, { okLabel: 'Cancel booking', danger: true });
+    if (!ok) return;
+    try {
+      const results = await Promise.all(ids.map((id) => authedFetch(`/api/admin/bookings/${id}/cancel`, { method: 'POST' })));
+      if (results.every((res) => res.ok)) {
+        showToast('Booking cancelled', 'success');
+      } else {
+        showToast('Some slots could not be cancelled', 'error');
+      }
+      await loadBookings();
+    } catch (e) {}
+  }
+
+  async function deleteGroup(ids) {
+    const label = ids.length > 1 ? `all ${ids.length} slots` : 'this booking';
+    const ok = await showConfirm(`Permanently delete ${label}?`, { okLabel: 'Delete', danger: true });
+    if (!ok) return;
+    try {
+      const results = await Promise.all(ids.map((id) => authedFetch(`/api/admin/bookings/${id}`, { method: 'DELETE' })));
+      if (results.every((res) => res.ok)) {
+        showToast('Booking deleted', 'success');
+      } else {
+        showToast('Some slots could not be deleted', 'error');
+      }
+      await loadBookings();
     } catch (e) {}
   }
 

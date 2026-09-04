@@ -873,6 +873,10 @@ main {
 .selected-slot-row .slot-court { color: var(--muted); font-weight: 500; margin-left: 6px; }
 .selected-slot-row .slot-price { color: var(--muted); font-variant-numeric: tabular-nums; }
 
+.selected-slots-subtotal { padding: 7px 12px; background: var(--surface-2); }
+.selected-slots-subtotal .slot-info { color: var(--muted); font-weight: 600; font-size: 0.82rem; }
+.selected-slots-subtotal .slot-price { font-weight: 600; font-size: 0.82rem; }
+
 .selected-slots-total {
   display: flex;
   justify-content: space-between;
