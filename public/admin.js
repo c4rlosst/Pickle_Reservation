@@ -36,6 +36,66 @@
   textLightbox.addEventListener('click', () => textLightbox.classList.add('hidden'));
   textLightboxContent.addEventListener('click', (e) => e.stopPropagation());
 
+  // Custom confirm/prompt modal -- native window.confirm()/prompt() are
+  // unreliable inside some embedded/webview browser contexts (they can be
+  // silently auto-dismissed), which made Confirm/Reject/Cancel/Delete
+  // appear completely dead with no visible error. This in-page modal works
+  // everywhere the rest of the app already works.
+  const confirmModal = el('confirmModal');
+  const confirmModalCard = confirmModal.querySelector('.confirm-modal-card');
+  const confirmModalMsg = el('confirmModalMsg');
+  const confirmModalInput = el('confirmModalInput');
+  const confirmModalCancel = el('confirmModalCancel');
+  const confirmModalOk = el('confirmModalOk');
+  let confirmModalResolve = null;
+  let confirmModalIsPrompt = false;
+
+  function closeConfirmModal(confirmed) {
+    confirmModal.classList.add('hidden');
+    const resolve = confirmModalResolve;
+    confirmModalResolve = null;
+    if (!resolve) return;
+    resolve(confirmModalIsPrompt ? (confirmed ? confirmModalInput.value.trim() : null) : Boolean(confirmed));
+  }
+
+  confirmModal.addEventListener('click', () => closeConfirmModal(false));
+  confirmModalCard.addEventListener('click', (e) => e.stopPropagation());
+  confirmModalCancel.addEventListener('click', () => closeConfirmModal(false));
+  confirmModalOk.addEventListener('click', () => closeConfirmModal(true));
+  confirmModalInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      closeConfirmModal(true);
+    }
+  });
+
+  function openConfirmModal({ message, okLabel, danger, withInput, inputPlaceholder }) {
+    return new Promise((resolve) => {
+      confirmModalResolve = resolve;
+      confirmModalIsPrompt = Boolean(withInput);
+      confirmModalMsg.textContent = message;
+      confirmModalOk.textContent = okLabel || 'OK';
+      confirmModalOk.classList.toggle('danger', Boolean(danger));
+      if (withInput) {
+        confirmModalInput.classList.remove('hidden');
+        confirmModalInput.value = '';
+        confirmModalInput.placeholder = inputPlaceholder || '';
+      } else {
+        confirmModalInput.classList.add('hidden');
+      }
+      confirmModal.classList.remove('hidden');
+      requestAnimationFrame(() => (withInput ? confirmModalInput : confirmModalOk).focus());
+    });
+  }
+
+  function showConfirm(message, opts) {
+    return openConfirmModal(Object.assign({ message }, opts));
+  }
+
+  function showPrompt(message, opts) {
+    return openConfirmModal(Object.assign({ message, withInput: true }, opts));
+  }
+
   function notesCellHtml(preview, full) {
     if (!full) return '';
     return `<button type="button" class="notes-icon-btn" data-full="${escapeHtml(full)}" title="View notes" aria-label="View notes"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="13" y2="17"></line></svg></button>`;
@@ -394,7 +454,8 @@
 
   async function confirmGroup(groupId, count) {
     const label = count > 1 ? `these ${count} slots` : 'this booking';
-    if (!confirm(`Confirm ${label}? Only do this after verifying the payment screenshot is real.`)) return;
+    const ok = await showConfirm(`Confirm ${label}? Only do this after verifying the payment screenshot is real.`, { okLabel: 'Confirm' });
+    if (!ok) return;
     try {
       const res = await authedFetch(`/api/admin/groups/${groupId}/confirm`, { method: 'POST' });
       const data = await res.json();
@@ -408,7 +469,8 @@
   }
 
   async function rejectGroup(groupId) {
-    const reason = prompt('Reason for rejecting (optional, e.g. "Screenshot does not match amount"):') || '';
+    const reason = await showPrompt('Reason for rejecting (optional, e.g. "Screenshot does not match amount"):', { okLabel: 'Reject', danger: true, inputPlaceholder: 'Reason (optional)' });
+    if (reason === null) return;
     try {
       const res = await authedFetch(`/api/admin/groups/${groupId}/reject`, {
         method: 'POST',
@@ -426,7 +488,8 @@
   }
 
   async function cancelBooking(id) {
-    if (!confirm('Cancel this booking and re-open the slot?')) return;
+    const ok = await showConfirm('Cancel this booking and re-open the slot?', { okLabel: 'Cancel booking', danger: true });
+    if (!ok) return;
     try {
       const res = await authedFetch(`/api/admin/bookings/${id}/cancel`, { method: 'POST' });
       if (res.ok) {
@@ -437,7 +500,8 @@
   }
 
   async function deleteBooking(id) {
-    if (!confirm('Permanently delete this booking?')) return;
+    const ok = await showConfirm('Permanently delete this booking?', { okLabel: 'Delete', danger: true });
+    if (!ok) return;
     try {
       const res = await authedFetch(`/api/admin/bookings/${id}`, { method: 'DELETE' });
       if (res.ok) {
