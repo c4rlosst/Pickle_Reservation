@@ -6,6 +6,8 @@
   const loginBox = el('loginBox');
   const adminMain = el('adminMain');
   const toast = el('toast');
+  const lightbox = el('lightbox');
+  const lightboxImg = el('lightboxImg');
 
   function showToast(msg, type) {
     toast.textContent = msg;
@@ -19,6 +21,8 @@
     if (hour12 === 0) hour12 = 12;
     return `${hour12}:00 ${period}`;
   }
+
+  lightbox.addEventListener('click', () => lightbox.classList.add('hidden'));
 
   async function authedFetch(url, opts) {
     opts = opts || {};
@@ -128,29 +132,63 @@
     const tbody = el('bookingTbody');
     tbody.innerHTML = '';
     if (bookings.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" class="muted" style="text-align:center;padding:24px;">No bookings found.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" class="muted" style="text-align:center;padding:24px;">No bookings found.</td></tr>';
       return;
     }
 
     bookings.forEach((b) => {
       const tr = document.createElement('tr');
+      const priceLabel = b.price ? `₱${b.price}` : '';
       tr.innerHTML = `
         <td>${b.date}</td>
         <td>${fmtHour(b.hour)}</td>
         <td>${courtName(b.courtId)}</td>
-        <td>${escapeHtml(b.name)}</td>
+        <td>${escapeHtml(b.name)}${priceLabel ? `<div class="muted">${priceLabel}</div>` : ''}</td>
         <td>${escapeHtml(b.contact)}</td>
-        <td>${escapeHtml(b.notes || '')}</td>
+        <td class="proof-cell"></td>
+        <td>${escapeHtml(b.notes || '')}${b.rejectReason ? `<div class="muted">Reason: ${escapeHtml(b.rejectReason)}</div>` : ''}</td>
         <td><span class="status-badge status-${b.status}">${b.status}</span></td>
         <td class="row-actions"></td>
       `;
+
+      const proofCell = tr.querySelector('.proof-cell');
+      if (b.screenshotUrl) {
+        const img = document.createElement('img');
+        img.className = 'thumb';
+        img.src = b.screenshotUrl;
+        img.alt = 'Payment screenshot';
+        img.addEventListener('click', () => {
+          lightboxImg.src = b.screenshotUrl;
+          lightbox.classList.remove('hidden');
+        });
+        proofCell.appendChild(img);
+      } else {
+        proofCell.innerHTML = '<span class="muted">—</span>';
+      }
+
       const actionsTd = tr.querySelector('.row-actions');
-      if (b.status !== 'cancelled') {
+
+      if (b.status === 'pending') {
+        const confirmBtn = document.createElement('button');
+        confirmBtn.textContent = 'Confirm';
+        confirmBtn.className = 'confirm';
+        confirmBtn.addEventListener('click', () => confirmBooking(b.id));
+        actionsTd.appendChild(confirmBtn);
+
+        const rejectBtn = document.createElement('button');
+        rejectBtn.textContent = 'Reject';
+        rejectBtn.className = 'reject';
+        rejectBtn.addEventListener('click', () => rejectBooking(b.id));
+        actionsTd.appendChild(rejectBtn);
+      }
+
+      if (b.status === 'confirmed' || b.status === 'blocked') {
         const cancelBtn = document.createElement('button');
         cancelBtn.textContent = 'Cancel';
         cancelBtn.addEventListener('click', () => cancelBooking(b.id));
         actionsTd.appendChild(cancelBtn);
       }
+
       const deleteBtn = document.createElement('button');
       deleteBtn.textContent = 'Delete';
       deleteBtn.addEventListener('click', () => deleteBooking(b.id));
@@ -166,7 +204,40 @@
     }[c]));
   }
 
+  async function confirmBooking(id) {
+    if (!confirm('Confirm this booking? Only do this after verifying the payment screenshot is real.')) return;
+    try {
+      const res = await authedFetch(`/api/admin/bookings/${id}/confirm`, { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        showToast('Booking confirmed', 'success');
+        await loadBookings();
+      } else {
+        showToast(data.error || 'Could not confirm booking', 'error');
+      }
+    } catch (e) {}
+  }
+
+  async function rejectBooking(id) {
+    const reason = prompt('Reason for rejecting (optional, e.g. "Screenshot does not match amount"):') || '';
+    try {
+      const res = await authedFetch(`/api/admin/bookings/${id}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast('Booking rejected — slot re-opened', 'success');
+        await loadBookings();
+      } else {
+        showToast(data.error || 'Could not reject booking', 'error');
+      }
+    } catch (e) {}
+  }
+
   async function cancelBooking(id) {
+    if (!confirm('Cancel this booking and re-open the slot?')) return;
     try {
       const res = await authedFetch(`/api/admin/bookings/${id}/cancel`, { method: 'POST' });
       if (res.ok) {

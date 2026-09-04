@@ -13,10 +13,10 @@
   const bookingForm = el('bookingForm');
   const formError = el('formError');
   const toast = el('toast');
+  const successBox = el('successBox');
 
   function todayStr() {
-    const d = new Date();
-    return fmtDate(d);
+    return fmtDate(new Date());
   }
 
   function fmtDate(d) {
@@ -83,8 +83,9 @@
         const booking = bookingMap[key];
         const td = document.createElement('td');
         const past = isPastSlot(currentDate, hour);
-        td.className = 'slot' + (booking ? ' taken' : past ? ' past' : '');
-        td.textContent = booking ? booking.name : past ? '' : 'Book';
+        const statusClass = booking ? (booking.status === 'pending' ? 'pending' : 'taken') : past ? 'past' : '';
+        td.className = 'slot' + (statusClass ? ' ' + statusClass : '');
+        td.textContent = booking ? booking.label : past ? '' : `₱${CONFIG.pricePerHour}`;
         if (!booking && !past) {
           td.addEventListener('click', () => openModal(court, hour));
         }
@@ -98,8 +99,15 @@
   function openModal(court, hour) {
     selected = { courtId: court.id, hour };
     modalSub.textContent = `${court.name} · ${fmtHour(hour)}–${fmtHour(hour + 1)} · ${currentDate}`;
+    el('paymentAmount').textContent = `₱${CONFIG.pricePerHour} for this slot`;
+    el('paymentInstructions').textContent = CONFIG.paymentInstructions;
     formError.textContent = '';
     bookingForm.reset();
+    el('previewWrap').classList.add('hidden');
+    bookingForm.classList.remove('hidden');
+    successBox.classList.add('hidden');
+    el('submitBtn').disabled = false;
+    el('submitBtn').textContent = 'Submit for review';
     overlay.classList.remove('hidden');
   }
 
@@ -109,41 +117,72 @@
   }
 
   el('cancelBtn').addEventListener('click', closeModal);
+  el('closeSuccessBtn').addEventListener('click', async () => {
+    closeModal();
+    await loadGrid();
+  });
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) closeModal();
+  });
+
+  el('screenshot').addEventListener('change', () => {
+    const file = el('screenshot').files[0];
+    const previewWrap = el('previewWrap');
+    const previewImg = el('previewImg');
+    if (!file) {
+      previewWrap.classList.add('hidden');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      previewImg.src = e.target.result;
+      previewWrap.classList.remove('hidden');
+    };
+    reader.readAsDataURL(file);
   });
 
   bookingForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!selected) return;
     formError.textContent = '';
-    const payload = {
-      courtId: selected.courtId,
-      date: currentDate,
-      hour: selected.hour,
-      name: el('name').value,
-      contact: el('contact').value,
-      notes: el('notes').value,
-    };
+
+    const fileInput = el('screenshot');
+    if (!fileInput.files[0]) {
+      formError.textContent = 'Please attach a screenshot of your payment.';
+      return;
+    }
+
+    const submitBtn = el('submitBtn');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting…';
+
+    const fd = new FormData();
+    fd.append('courtId', selected.courtId);
+    fd.append('date', currentDate);
+    fd.append('hour', selected.hour);
+    fd.append('name', el('name').value);
+    fd.append('contact', el('contact').value);
+    fd.append('notes', el('notes').value);
+    fd.append('screenshot', fileInput.files[0]);
+
     try {
-      const res = await fetch('/api/bookings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const res = await fetch('/api/bookings', { method: 'POST', body: fd });
       const data = await res.json();
       if (!res.ok) {
-        formError.textContent = data.error || 'Could not book that slot.';
+        formError.textContent = data.error || 'Could not submit that booking.';
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit for review';
         if (data.code === 'TAKEN') {
           await loadGrid();
         }
         return;
       }
-      closeModal();
-      showToast('Booking confirmed!', 'success');
-      await loadGrid();
+      bookingForm.classList.add('hidden');
+      successBox.classList.remove('hidden');
     } catch (err) {
       formError.textContent = 'Network error. Please try again.';
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Submit for review';
     }
   });
 

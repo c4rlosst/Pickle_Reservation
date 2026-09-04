@@ -276,3 +276,58 @@ footer {
 }
 
 footer a { color: var(--muted); }
+
+/* --- Payment / pending review additions --- */
+.swatch.pending { background: #3a3018; border: 1px solid #5c4a1f; }
+
+.slot.pending {
+  background: #3a3018;
+  color: #e0c073;
+  cursor: not-allowed;
+}
+
+.payment-box {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.payment-amount {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+.payment-instructions {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.field input[type="file"] {
+  padding: 7px 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.preview-wrap {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  max-height: 180px;
+}
+
+.preview-wrap img {
+  display: block;
+  width: 100%;
+  object-fit: cover;
+}
+
+.success-box { text-align: center; padding: 6px 0 4px; }
+.success-box h3 { margin: 0 0 8px; }
+.success-box p { color: var(--muted); font-size: 0.9rem; line-height: 1.5; margin: 0 0 18px; }

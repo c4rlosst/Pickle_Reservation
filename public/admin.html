@@ -15,7 +15,15 @@
   table.list tr:last-child td { border-bottom: none; }
   .status-badge { padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; }
   .status-confirmed { background: #163a24; color: #7fe3a4; }
-  .status-cancelled { background: #3a1a17; color: #e2887a; }
+  .status-pending { background: #3a3018; color: #e0c073; }
+  .status-rejected { background: #3a1a17; color: #e2887a; }
+  .status-cancelled { background: #241f1f; color: #93a5b3; }
+  .status-blocked { background: #23262c; color: #93a5b3; }
+  .thumb { width: 46px; height: 46px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); cursor: pointer; display: block; }
+  .row-actions button.confirm { background: #163a24; border-color: #2f6b46; color: #7fe3a4; }
+  .row-actions button.reject { background: #3a1a17; border-color: #6e352a; color: #e2887a; }
+  .lightbox { position: fixed; inset: 0; background: rgba(5,8,11,0.85); display: flex; align-items: center; justify-content: center; z-index: 80; cursor: zoom-out; padding: 24px; }
+  .lightbox img { max-width: 100%; max-height: 100%; border-radius: 8px; }
   .row-actions button { margin-right: 6px; padding: 5px 9px; font-size: 0.78rem; border-radius: 6px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); cursor: pointer; }
   .row-actions button:hover { background: #24384a; }
   .toolbar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
@@ -58,9 +66,12 @@
     <div class="toolbar-left">
       <label class="muted">Filter:</label>
       <select id="filterStatus">
+        <option value="pending" selected>Pending review</option>
         <option value="all">All statuses</option>
-        <option value="confirmed" selected>Confirmed</option>
+        <option value="confirmed">Confirmed</option>
+        <option value="rejected">Rejected</option>
         <option value="cancelled">Cancelled</option>
+        <option value="blocked">Blocked</option>
       </select>
       <input type="text" id="filterDate" placeholder="Filter by date (YYYY-MM-DD)" />
     </div>
@@ -76,6 +87,7 @@
           <th>Court</th>
           <th>Name</th>
           <th>Contact</th>
+          <th>Proof</th>
           <th>Notes</th>
           <th>Status</th>
           <th>Actions</th>
@@ -85,6 +97,8 @@
     </table>
   </div>
 </main>
+
+<div class="lightbox hidden" id="lightbox"><img id="lightboxImg" alt="Payment screenshot" /></div>
 
 <div class="toast hidden" id="toast"></div>
 

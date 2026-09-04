@@ -23,6 +23,7 @@
 
   <div class="legend">
     <span><span class="swatch free"></span> Available</span>
+    <span><span class="swatch pending"></span> Pending review</span>
     <span><span class="swatch taken"></span> Booked</span>
     <span><span class="swatch past"></span> Past / unavailable</span>
   </div>
@@ -44,8 +45,14 @@
 <!-- Booking modal -->
 <div class="overlay hidden" id="overlay">
   <div class="modal">
-    <h2>Confirm your booking</h2>
+    <h2>Book this slot</h2>
     <p class="sub" id="modalSub"></p>
+
+    <div class="payment-box">
+      <div class="payment-amount" id="paymentAmount"></div>
+      <p class="payment-instructions" id="paymentInstructions"></p>
+    </div>
+
     <form id="bookingForm">
       <div class="field">
         <label for="name">Full name</label>
@@ -56,15 +63,29 @@
         <input type="text" id="contact" required maxlength="120" />
       </div>
       <div class="field">
+        <label for="screenshot">Payment screenshot</label>
+        <input type="file" id="screenshot" accept="image/*" required />
+        <div class="preview-wrap hidden" id="previewWrap">
+          <img id="previewImg" alt="Screenshot preview" />
+        </div>
+      </div>
+      <div class="field">
         <label for="notes">Notes (optional)</label>
         <textarea id="notes" rows="2" maxlength="200"></textarea>
       </div>
       <div class="error-msg" id="formError"></div>
       <div class="modal-actions">
         <button type="button" class="btn ghost" id="cancelBtn">Cancel</button>
-        <button type="submit" class="btn primary">Book slot</button>
+        <button type="submit" class="btn primary" id="submitBtn">Submit for review</button>
       </div>
     </form>
+
+    <div class="success-box hidden" id="successBox">
+      <h3>✅ Submitted!</h3>
+      <p>Your slot is held as <strong>Pending</strong>. The admin will verify your payment
+      screenshot and confirm your booking shortly.</p>
+      <button type="button" class="btn primary" id="closeSuccessBtn">Done</button>
+    </div>
   </div>
 </div>
 
