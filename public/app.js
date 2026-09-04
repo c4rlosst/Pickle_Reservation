@@ -10,6 +10,7 @@
   const gridBody = el('gridBody');
   const datePicker = el('datePicker');
   const dateLabel = el('dateLabel');
+  const dateStrip = el('dateStrip');
   const overlay = el('overlay');
   const modalSub = el('modalSub');
   const bookingForm = el('bookingForm');
@@ -105,13 +106,39 @@
 
   el('bookSelectedBtn').addEventListener('click', () => openModal());
 
+  function buildDateStrip() {
+    dateStrip.innerHTML = '';
+    const today = new Date();
+    for (let i = 0; i < 14; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() + i);
+      const dateStr = fmtDate(d);
+
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      let cls = 'date-chip';
+      if (dateStr === currentDate) cls += ' active';
+      else if (i === 0) cls += ' today';
+      chip.className = cls;
+      chip.innerHTML = `<span class="dow">${d.toLocaleDateString(undefined, { weekday: 'short' })}</span><span class="dom">${d.getDate()}</span>`;
+      chip.addEventListener('click', () => {
+        if (dateStr === currentDate) return;
+        currentDate = dateStr;
+        clearSelectionOnDateChange();
+        loadGrid();
+      });
+      dateStrip.appendChild(chip);
+    }
+  }
+
   async function loadGrid() {
     dateLabel.textContent = new Date(currentDate + 'T00:00:00').toLocaleDateString(undefined, {
-      weekday: 'short',
-      month: 'short',
+      weekday: 'long',
+      month: 'long',
       day: 'numeric',
     });
     datePicker.value = currentDate;
+    buildDateStrip();
 
     const res = await fetch(`/api/bookings?date=${currentDate}`);
     const data = await res.json();
@@ -210,6 +237,8 @@
     bookingForm.reset();
     el('previewWrap').classList.add('hidden');
     bookingForm.classList.remove('hidden');
+    el('selectedSlotsList').classList.remove('hidden');
+    el('paymentAmount').parentElement.classList.remove('hidden');
     successBox.classList.add('hidden');
     el('submitBtn').disabled = false;
     el('submitBtn').textContent = 'Submit for review';
@@ -290,6 +319,8 @@
         return;
       }
       bookingForm.classList.add('hidden');
+      el('selectedSlotsList').classList.add('hidden');
+      el('paymentAmount').parentElement.classList.add('hidden');
       successBox.classList.remove('hidden');
     } catch (err) {
       formError.textContent = 'Network error. Please try again.';
@@ -298,8 +329,6 @@
     }
   });
 
-  el('prevDay').addEventListener('click', () => shiftDay(-1));
-  el('nextDay').addEventListener('click', () => shiftDay(1));
   el('calBtn').addEventListener('click', () => {
     if (datePicker.showPicker) {
       try { datePicker.showPicker(); } catch (e) { datePicker.focus(); }
@@ -323,13 +352,6 @@
     }
   }
 
-  function shiftDay(delta) {
-    const d = new Date(currentDate + 'T00:00:00');
-    d.setDate(d.getDate() + delta);
-    currentDate = fmtDate(d);
-    clearSelectionOnDateChange();
-    loadGrid();
-  }
 
   (async function init() {
     await loadConfig();

@@ -8,20 +8,20 @@
 </head>
 <body>
 <header class="site">
-  <h1>🏓 FORA Pickleball Courts</h1>
+  <div class="brand">
+    <span class="brand-mark">🏓</span>
+    <span class="brand-name">FORA<span class="brand-name-accent">Pickleball</span></span>
+  </div>
 </header>
 
 <main>
   <h2 class="section-title">Choose your slots</h2>
+  <p class="section-sub" id="dateLabel"></p>
 
-  <div class="date-nav">
-    <button class="date-nav-btn" id="prevDay" aria-label="Previous day">&lsaquo;</button>
-    <div class="date-nav-current">
-      <span id="dateLabel"></span>
-      <button class="cal-btn" id="calBtn" aria-label="Pick a date">📅</button>
-      <input type="date" id="datePicker" class="visually-hidden-date" />
-    </div>
-    <button class="date-nav-btn" id="nextDay" aria-label="Next day">&rsaquo;</button>
+  <div class="date-strip-wrap">
+    <div class="date-strip" id="dateStrip"></div>
+    <button class="cal-btn" id="calBtn" aria-label="Pick a date">📅</button>
+    <input type="date" id="datePicker" class="visually-hidden-date" />
   </div>
 
   <div class="grid-wrap">
@@ -97,8 +97,9 @@
     </form>
 
     <div class="success-box hidden" id="successBox">
-      <h3>✅ Submitted!</h3>
-      <p>Your slot is held as <strong>Pending</strong>. The admin will verify your payment
+      <div class="success-icon">✓</div>
+      <h3>You're on the list!</h3>
+      <p>Your slot is held as <strong>Pending</strong>. We'll verify your payment
       screenshot and confirm your booking shortly.</p>
       <button type="button" class="btn primary" id="closeSuccessBtn">Done</button>
     </div>
