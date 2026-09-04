@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FORA Pickleball &mdash; Court Booking</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header class="site">
+  <h1>🏓 FORA Pickleball Courts</h1>
+  <p>Book Court 1, 2, or 3 by the hour</p>
+</header>
+
+<main>
+  <div class="controls">
+    <button id="prevDay">&larr; Prev</button>
+    <input type="date" id="datePicker" />
+    <span id="dateLabel"></span>
+    <button id="nextDay">Next &rarr;</button>
+    <button id="todayBtn">Today</button>
+  </div>
+
+  <div class="legend">
+    <span><span class="swatch free"></span> Available</span>
+    <span><span class="swatch taken"></span> Booked</span>
+    <span><span class="swatch past"></span> Past / unavailable</span>
+  </div>
+
+  <div class="grid-wrap">
+    <table class="grid" id="grid">
+      <thead>
+        <tr id="gridHead"></tr>
+      </thead>
+      <tbody id="gridBody"></tbody>
+    </table>
+  </div>
+</main>
+
+<footer>
+  Admin? <a href="/admin.html">Manage bookings</a>
+</footer>
+
+<!-- Booking modal -->
+<div class="overlay hidden" id="overlay">
+  <div class="modal">
+    <h2>Confirm your booking</h2>
+    <p class="sub" id="modalSub"></p>
+    <form id="bookingForm">
+      <div class="field">
+        <label for="name">Full name</label>
+        <input type="text" id="name" required maxlength="80" />
+      </div>
+      <div class="field">
+        <label for="contact">Phone or email</label>
+        <input type="text" id="contact" required maxlength="120" />
+      </div>
+      <div class="field">
+        <label for="notes">Notes (optional)</label>
+        <textarea id="notes" rows="2" maxlength="200"></textarea>
+      </div>
+      <div class="error-msg" id="formError"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn ghost" id="cancelBtn">Cancel</button>
+        <button type="submit" class="btn primary">Book slot</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toast hidden" id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

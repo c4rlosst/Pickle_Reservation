@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Admin &mdash; FORA Pickleball</title>
+<link rel="stylesheet" href="style.css" />
+<style>
+  main.admin { max-width: 1100px; }
+  .login-box { max-width: 340px; margin: 60px auto; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 24px; }
+  .login-box h2 { margin-top: 0; }
+  table.list { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  table.list th, table.list td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 0.88rem; text-align: left; }
+  table.list th { background: var(--panel-2); }
+  table.list tr:last-child td { border-bottom: none; }
+  .status-badge { padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; }
+  .status-confirmed { background: #163a24; color: #7fe3a4; }
+  .status-cancelled { background: #3a1a17; color: #e2887a; }
+  .row-actions button { margin-right: 6px; padding: 5px 9px; font-size: 0.78rem; border-radius: 6px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); cursor: pointer; }
+  .row-actions button:hover { background: #24384a; }
+  .toolbar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+  .toolbar-left { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  select, .toolbar input[type="text"] { background: var(--panel-2); border: 1px solid var(--border); color: var(--text); padding: 7px 10px; border-radius: 8px; font-size: 0.88rem; }
+  .block-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 20px; background: var(--panel); border: 1px solid var(--border); padding: 12px; border-radius: 10px; }
+  .block-form input, .block-form select { background: var(--panel-2); border: 1px solid var(--border); color: var(--text); padding: 7px 9px; border-radius: 8px; font-size: 0.86rem; }
+  .block-form button { background: var(--accent); color: #06210f; font-weight: 600; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
+  .hidden { display: none !important; }
+  .muted { color: var(--muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+<header class="site">
+  <h1>🏓 Admin Dashboard</h1>
+  <p>Manage FORA Pickleball court bookings</p>
+</header>
+
+<div class="login-box" id="loginBox">
+  <h2>Admin login</h2>
+  <div class="field">
+    <label for="password">Password</label>
+    <input type="password" id="password" />
+  </div>
+  <div class="error-msg" id="loginError"></div>
+  <button class="btn primary" id="loginBtn" style="width:100%;margin-top:8px;">Log in</button>
+</div>
+
+<main class="admin hidden" id="adminMain">
+  <div class="block-form">
+    <strong style="margin-right:4px;">Block a slot</strong>
+    <select id="blockCourt"></select>
+    <input type="date" id="blockDate" />
+    <select id="blockHour"></select>
+    <input type="text" id="blockNotes" placeholder="Reason (optional)" />
+    <button id="blockBtn">Block</button>
+  </div>
+
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <label class="muted">Filter:</label>
+      <select id="filterStatus">
+        <option value="all">All statuses</option>
+        <option value="confirmed" selected>Confirmed</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
+      <input type="text" id="filterDate" placeholder="Filter by date (YYYY-MM-DD)" />
+    </div>
+    <button class="btn ghost" id="refreshBtn" style="flex:none;padding:8px 14px;">Refresh</button>
+  </div>
+
+  <div class="grid-wrap" style="overflow-x:auto;">
+    <table class="list" id="bookingTable">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Time</th>
+          <th>Court</th>
+          <th>Name</th>
+          <th>Contact</th>
+          <th>Notes</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="bookingTbody"></tbody>
+    </table>
+  </div>
+</main>
+
+<div class="toast hidden" id="toast"></div>
+
+<script src="admin.js"></script>
+</body>
+</html>

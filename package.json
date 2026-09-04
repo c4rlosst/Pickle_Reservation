@@ -1,0 +1,18 @@
+{
+  "name": "fora-pickleball-booking",
+  "version": "1.0.0",
+  "description": "Booking site for FORA pickleball courts (3 courts, hourly slots)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "dotenv": "^16.4.5"
+  },
+  "license": "MIT"
+}
