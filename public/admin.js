@@ -2,6 +2,8 @@
   let CONFIG = null;
   let adminPassword = sessionStorage.getItem('fora_admin_pw') || '';
   const selectedBlockHours = new Set();
+  let allBookings = []; // unfiltered, refreshed each loadBookings() — used to show
+                         // which hours are already taken in the block-a-slot picker
 
   const el = (id) => document.getElementById(id);
   const loginBox = el('loginBox');
@@ -100,15 +102,15 @@
     const courtSel = el('blockCourt');
     courtSel.innerHTML = CONFIG.courts.map((c) => `<option value="${c.id}">${c.name}</option>`).join('');
 
+    const today = new Date();
+    el('blockDate').value = today.toISOString().slice(0, 10);
+
     selectedBlockHours.clear();
     const hoursWrap = el('blockHours');
     hoursWrap.innerHTML = CONFIG.hours
       .map((h) => `<button type="button" class="hour-chip" data-hour="${h}">${fmtHour(h)}</button>`)
       .join('');
-    updateBlockHoursSummary();
-
-    const today = new Date();
-    el('blockDate').value = today.toISOString().slice(0, 10);
+    updateBlockHoursAvailability();
   }
 
   function updateBlockHoursSummary() {
@@ -118,9 +120,46 @@
     else label.textContent = `${selectedBlockHours.size} times selected`;
   }
 
+  // Marks each time chip as already taken (pending/confirmed/blocked
+  // booking on that court+date) so staff can see at a glance what's
+  // actually free to block, instead of guessing and hitting a "TAKEN" error.
+  function updateBlockHoursAvailability() {
+    const courtId = Number(el('blockCourt').value);
+    const date = el('blockDate').value;
+    // Map each taken hour to its status so the chip can be colored:
+    // pending (awaiting confirmation) vs confirmed/blocked (locked in).
+    const hourStatus = new Map();
+    allBookings
+      .filter((b) => b.courtId === courtId && b.date === date && ['pending', 'confirmed', 'blocked'].includes(b.status))
+      .forEach((b) => hourStatus.set(b.hour, b.status));
+
+    el('blockHours').querySelectorAll('.hour-chip').forEach((chip) => {
+      const hour = Number(chip.dataset.hour);
+      const status = hourStatus.get(hour);
+      const taken = Boolean(status);
+      chip.classList.toggle('taken', taken);
+      chip.classList.toggle('pending', status === 'pending');
+      chip.classList.toggle('booked', status === 'confirmed' || status === 'blocked');
+      chip.disabled = taken;
+      chip.title = status === 'pending'
+        ? 'Pending — awaiting confirmation'
+        : taken
+          ? 'Already booked or blocked'
+          : 'Available';
+      if (taken && selectedBlockHours.has(hour)) {
+        selectedBlockHours.delete(hour);
+        chip.classList.remove('selected');
+      }
+    });
+    updateBlockHoursSummary();
+  }
+
+  el('blockCourt').addEventListener('change', updateBlockHoursAvailability);
+  el('blockDate').addEventListener('change', updateBlockHoursAvailability);
+
   el('blockHours').addEventListener('click', (e) => {
     const chip = e.target.closest('.hour-chip');
-    if (!chip) return;
+    if (!chip || chip.disabled) return;
     const hour = Number(chip.dataset.hour);
     if (selectedBlockHours.has(hour)) {
       selectedBlockHours.delete(hour);
@@ -184,8 +223,10 @@
   async function loadBookings() {
     const res = await authedFetch('/api/admin/bookings');
     const data = await res.json();
-    let bookings = data.bookings || [];
+    allBookings = data.bookings || [];
+    updateBlockHoursAvailability();
 
+    let bookings = allBookings;
     const statusFilter = el('filterStatus').value;
     const dateFilter = el('filterDate').value.trim();
 

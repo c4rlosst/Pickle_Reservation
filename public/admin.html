@@ -101,11 +101,26 @@
     margin-top: 12px; padding-top: 12px;
     border-top: 1px solid var(--border);
   }
-  .block-hours-label {
-    display: block;
-    font-size: 0.78rem; font-weight: 700; color: var(--muted);
+  .block-hours-header {
+    display: flex; align-items: baseline; justify-content: space-between;
+    flex-wrap: wrap; gap: 4px 12px;
     margin-bottom: 8px;
   }
+  .block-hours-label {
+    font-size: 0.78rem; font-weight: 700; color: var(--muted);
+  }
+  .block-hours-legend {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 3px 12px;
+    font-size: 0.74rem; color: var(--muted-2);
+  }
+  .legend-dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 999px;
+    margin-right: 5px; vertical-align: middle;
+  }
+  .legend-dot:not(:first-child) { margin-left: 4px; }
+  .legend-available { background: #1a6b3a; }
+  .legend-pending { background: #92700f; }
+  .legend-booked { background: #a12626; }
   .block-hours-chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .hour-chip {
     padding: 6px 12px;
@@ -113,14 +128,30 @@
     font-weight: 600;
     font-family: var(--font-body);
     border-radius: 999px;
-    border: 1px solid var(--border-strong);
-    background: var(--surface-2);
-    color: var(--text);
+    border: 1px solid #bfe3cc;
+    background: #f2faf5;
+    color: #1a6b3a;
     cursor: pointer;
     transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
   }
   .hour-chip:hover { border-color: var(--green-strong); }
   .hour-chip.selected { background: var(--green-strong); border-color: var(--green-strong); color: #fff; }
+  .hour-chip.taken {
+    text-decoration: line-through;
+    cursor: not-allowed;
+  }
+  .hour-chip.pending {
+    background: #fef6e0;
+    border-color: #f3d98b;
+    color: #92700f;
+  }
+  .hour-chip.pending:hover { border-color: #f3d98b; }
+  .hour-chip.booked {
+    background: #fdecec;
+    border-color: #f3b8b8;
+    color: #a12626;
+  }
+  .hour-chip.booked:hover { border-color: #f3b8b8; }
 
   .toolbar { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
   .toolbar-left { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
@@ -357,7 +388,14 @@
       <button id="blockBtn">Block</button>
     </div>
     <div class="block-hours">
-      <span class="block-hours-label" id="blockHoursLabel">Select times</span>
+      <div class="block-hours-header">
+        <span class="block-hours-label" id="blockHoursLabel">Select times</span>
+        <span class="block-hours-legend">
+          <span class="legend-dot legend-available"></span>Available
+          <span class="legend-dot legend-pending"></span>Pending
+          <span class="legend-dot legend-booked"></span>Booked
+        </span>
+      </div>
       <div class="block-hours-chips" id="blockHours"></div>
     </div>
   </div>
