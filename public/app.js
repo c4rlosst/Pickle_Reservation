@@ -249,7 +249,7 @@
       if (booking && booking.status === 'pending') {
         btn.className = 'time-slot unavailable pending';
         btn.disabled = true;
-        btn.innerHTML = `<span>${fmtTime(hour)}</span><span class="pending-badge">Pending</span>`;
+        btn.innerHTML = `<span class="pending-time">${fmtTime(hour)}</span><span class="pending-badge">Pending</span>`;
         timeList.appendChild(btn);
         return;
       } else if (booking) {
