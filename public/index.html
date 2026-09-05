@@ -4,6 +4,35 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>FORA Pickleball &mdash; Court Booking</title>
+<script>
+  // Start the two API requests here, in the <head>, instead of waiting for
+  // app.js to load and run. A script placed after the stylesheet can't
+  // execute until the CSS has finished downloading, which was holding both
+  // requests back by roughly half a second on every page load -- they only
+  // began once style.css landed, long after the HTML itself had arrived.
+  // Kicking them off now means they're already in flight while the
+  // stylesheet and app.js are still downloading, so the first thing the
+  // customer sees is the schedule rather than an empty card.
+  //
+  // Nothing here touches the DOM or depends on app.js; it just parks the
+  // promises for app.js to pick up. If either fails, the promise resolves
+  // to null and app.js quietly does the request itself the normal way.
+  (function () {
+    var d = new Date();
+    var pad = function (n) { return String(n).padStart(2, '0'); };
+    // Must match fmtDate()/todayStr() in app.js -- local date, not UTC, so
+    // an evening in Manila doesn't ask for tomorrow's availability.
+    var today = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+    var json = function (url) {
+      return fetch(url).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
+    };
+    window.__boot = {
+      date: today,
+      config: json('/api/config'),
+      day: json('/api/bookings?date=' + today),
+    };
+  })();
+</script>
 <link rel="stylesheet" href="style.css" />
 </head>
 <body class="booking-page">

@@ -105,9 +105,23 @@
     setTimeout(() => (toast.className = 'toast hidden'), 3200);
   }
 
+  // Takes the response index.html already started fetching, if it's there
+  // and succeeded; otherwise just does the request itself. Same for the
+  // day's availability in fetchDay() below.
+  function bootstrapped(key, expectedDate) {
+    const boot = window.__boot;
+    if (!boot) return null;
+    if (expectedDate && boot.date !== expectedDate) return null;
+    const promise = boot[key];
+    // One use only -- a later call must get fresh data, not a replay of
+    // whatever the page happened to load with.
+    boot[key] = null;
+    return promise || null;
+  }
+
   async function loadConfig() {
-    const res = await fetch('/api/config');
-    CONFIG = await res.json();
+    const booted = await (bootstrapped('config') || Promise.resolve(null));
+    CONFIG = booted || await (await fetch('/api/config')).json();
 
     el('venueCourtsMeta').textContent = `${CONFIG.courts.length} court${CONFIG.courts.length > 1 ? 's' : ''}`;
     el('venueHoursMeta').textContent = `${fmtHour(CONFIG.openHour)} – ${fmtHour(CONFIG.closeHour)}`;
@@ -371,8 +385,8 @@
   async function fetchDay(date, fresh) {
     const cached = dayCache.get(date);
     if (!fresh && cached && Date.now() - cached.at < DAY_CACHE_MS) return cached.bookings;
-    const res = await fetch(`/api/bookings?date=${date}`);
-    const data = await res.json();
+    const booted = fresh ? null : await (bootstrapped('day', date) || Promise.resolve(null));
+    const data = booted || await (await fetch(`/api/bookings?date=${date}`)).json();
     const bookings = data.bookings || [];
     dayCache.set(date, { at: Date.now(), bookings });
     return bookings;
