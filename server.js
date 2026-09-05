@@ -106,10 +106,11 @@ app.get('/api/bookings', async (req, res) => {
 // from under a customer who's mid-payment.
 app.post('/api/bookings/hold', async (req, res) => {
   try {
-    const { groupId, holdExpiresAt, bookings } = await store.createHold(req.body?.slots);
+    const { groupId, holdExpiresAt, holdSeconds, bookings } = await store.createHold(req.body?.slots);
     res.status(201).json({
       groupId,
       holdExpiresAt,
+      holdSeconds,
       bookings: bookings.map((b) => ({ id: b.id, courtId: b.courtId, date: b.date, hour: b.hour, status: b.status, price: b.price })),
     });
   } catch (err) {

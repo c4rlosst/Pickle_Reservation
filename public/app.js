@@ -201,7 +201,7 @@
       }
       currentHold = { groupId: data.groupId, holdExpiresAt: data.holdExpiresAt };
       openModal();
-      startHoldCountdown();
+      startHoldCountdown(data.holdSeconds);
     } catch (err) {
       showToast('Network error. Please try again.', 'error');
     } finally {
@@ -227,29 +227,40 @@
     }
   }
 
+  // Counts down locally from a plain number of seconds handed back by the
+  // server, rather than repeatedly comparing an absolute expiry timestamp
+  // against this device's own clock -- that comparison drifts (and can show
+  // the wrong minute) whenever the customer's device clock isn't in sync
+  // with the server's. The server's own hold_expires_at remains the real
+  // source of truth for when the hold actually expires; this is purely for
+  // what the customer sees on screen.
+  let holdSecondsLeft = 0;
+
   function renderHoldCountdown() {
     const timerEl = el('holdTimer');
     if (!currentHold) {
       timerEl.classList.add('hidden');
       return;
     }
-    const msLeft = new Date(currentHold.holdExpiresAt).getTime() - Date.now();
-    if (msLeft <= 0) {
+    if (holdSecondsLeft <= 0) {
       handleHoldExpired();
       return;
     }
-    const totalSeconds = Math.ceil(msLeft / 1000);
-    const mm = Math.floor(totalSeconds / 60);
-    const ss = String(totalSeconds % 60).padStart(2, '0');
+    const mm = Math.floor(holdSecondsLeft / 60);
+    const ss = String(holdSecondsLeft % 60).padStart(2, '0');
     timerEl.textContent = `Slot reserved for you — ${mm}:${ss} to complete payment`;
     timerEl.classList.remove('hidden');
-    timerEl.classList.toggle('urgent', totalSeconds <= 60);
+    timerEl.classList.toggle('urgent', holdSecondsLeft <= 60);
   }
 
-  function startHoldCountdown() {
+  function startHoldCountdown(holdSeconds) {
     stopHoldCountdown();
+    holdSecondsLeft = Math.max(0, Math.round(Number(holdSeconds) || 0));
     renderHoldCountdown();
-    holdCountdownInterval = setInterval(renderHoldCountdown, 1000);
+    holdCountdownInterval = setInterval(() => {
+      holdSecondsLeft -= 1;
+      renderHoldCountdown();
+    }, 1000);
   }
 
   function handleHoldExpired() {
