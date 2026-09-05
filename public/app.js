@@ -15,7 +15,7 @@
   // customer is off sending money. { groupId, holdExpiresAt } or null.
   let currentHold = null;
   // Set by selectDate() when switching to a new date should also clear the
-  // current selection. Deferred until renderTimes()'s animateCardHeight
+  // current selection. Deferred until renderTimes()'s animateListHeight
   // callback runs (rather than done immediately in selectDate) so the
   // selection-summary bar collapsing and the time-list swapping happen as
   // ONE atomic, height-locked update -- otherwise the summary bar (and the
@@ -34,7 +34,6 @@
   const timesHeading = el('timesHeading');
   const timeList = el('timeList');
   const bookingCard = el('bookingCard');
-  const cardInner = el('cardInner');
   const confirmPanel = el('confirmPanel');
   const modalSub = el('modalSub');
   const bookingForm = el('bookingForm');
@@ -359,80 +358,94 @@
     renderTimes();
   }
 
-  // Locks the list's current rendered height, runs the content update, then
-  // animates to the new content's natural height (capped the same way the
-  // CSS max-height already caps it). Without this, switching to a date with
-  // a different number of available slots snaps the box to its new size
-  // instantly, which reads as a jump/glitch rather than a resize.
-  // Animates the WHOLE card's height when its content's natural size
-  // changes (e.g. switching to a date with a different number of available
-  // slots). This deliberately targets #cardInner -- the calendar and times
-  // columns are flex siblings under align-items: stretch, so animating the
-  // inner time-list's own max-height doesn't reliably move the outer card:
-  // whichever column has the taller natural content governs the row's
-  // height, and once the times list's content drops below the calendar's
-  // natural height, the row clamps to the calendar's fixed size and the
-  // list's own shrinking has no further visible effect -- which is exactly
-  // why shrinking looked like it "snapped" while growing didn't. Animating
-  // the outer wrapper's height sidesteps that entirely.
-  function animateCardHeight(el, updateFn) {
+  // Smoothly resizes the times list when its content changes (switching to
+  // a date with a different number of available slots).
+  //
+  // This animates the TIME LIST itself, not the outer card, and that
+  // distinction is the whole fix. Animating the outer card's height looked
+  // correct when growing but always read as a snap when shrinking, for a
+  // subtle reason: the card is a normal block whose children reflow the
+  // instant the content changes. So on a shrink, the moment the shorter
+  // list was swapped in, the list, the Clear/Next footer and everything
+  // else immediately jumped to their final positions inside a card that
+  // was still pinned to its old, taller height -- all that was left to
+  // animate was 60-odd pixels of empty space below the footer. Everything
+  // the eye actually tracks had already moved; only the card's bottom edge
+  // glided. Growing hid this because the taller content was clipped by the
+  // card's overflow and got revealed as the card opened up.
+  //
+  // Animating the list means the box that actually changes size is the one
+  // being animated, and normal layout carries everything below it -- the
+  // footer and the card's bottom edge -- along smoothly, identically in
+  // both directions.
+  function animateListHeight(el, updateFn) {
     const startHeight = el.getBoundingClientRect().height;
-    // Lock the starting height with transitions off, and force the browser
-    // to commit that as its own separate style/layout state before doing
-    // anything else -- forcing a reflow (offsetHeight) makes this reliable
-    // without depending on requestAnimationFrame timing.
+
+    // First render (the list is still empty, so it has no height yet): just
+    // fill it in. Animating up from zero here would make the list visibly
+    // unfold every time the page loads, which isn't a resize -- it's just
+    // the page arriving.
+    if (startHeight === 0) {
+      updateFn();
+      return;
+    }
+
+    // Lock the current height with transitions off, and force the browser to
+    // commit that as its own style/layout state before anything else --
+    // forcing a reflow (offsetHeight) makes this reliable without depending
+    // on requestAnimationFrame, which doesn't run in a backgrounded tab.
     //
     // This locks an explicit `height`, not `max-height`. A max-height only
-    // caps growth -- it does nothing to stop a box from shrinking below it,
-    // so when the new content was SHORTER, the box would immediately drop
-    // to its new natural (smaller) size the instant updateFn() ran, before
-    // the transition ever got a chance to animate anything: growing worked
-    // (content was being clipped down to the old max-height, then released)
-    // but shrinking always snapped instantly. Locking a real `height`
-    // pins the box at the old size in both directions, so there is always
-    // a genuine start state to transition from.
+    // caps how tall a box may get; it never keeps one from shrinking below
+    // it. So with max-height the box dropped straight to its new smaller
+    // size the instant the content changed, leaving the transition nothing
+    // to animate from -- another reason shrinking used to snap.
     el.style.transition = 'none';
     el.style.height = startHeight + 'px';
     void el.offsetHeight;
 
     updateFn();
 
-    // Measure the TRUE natural height by briefly releasing the lock back to
-    // auto (transitions are still off, and nothing has been painted yet in
-    // this synchronous stretch of code, so this causes no visible flash)
-    // rather than reading el.scrollHeight while the box is still pinned to
-    // the OLD height. scrollHeight can under-/over-report here because
-    // some nested content's own layout depends on the container's current
-    // resolved size -- if that mismeasured value gets used as the
-    // transition's target, the box settles at a slightly wrong height and
-    // then, when the fixed height is later released back to auto for
-    // future resizes, it snaps that last little bit into place instead of
-    // just staying put. Measuring against real auto sizing up front avoids
-    // that entirely: the animated target and the eventual auto value are
-    // guaranteed to be the same number.
+    // Measure the real target by briefly releasing to auto. Nothing is
+    // painted during this synchronous stretch, so there's no flash. Reading
+    // the rect (rather than scrollHeight) is deliberate: it respects the
+    // list's CSS max-height, so a long list targets that cap and scrolls
+    // inside it, exactly as it does when no animation is involved.
     el.style.height = 'auto';
     const targetHeight = el.getBoundingClientRect().height;
     el.style.height = startHeight + 'px';
     void el.offsetHeight;
 
-    // Clear the inline override (falls back to the CSS-declared transition,
-    // which is what respects prefers-reduced-motion) and commit THAT as its
-    // own state before changing the height, so the browser has two
+    // Clearing the inline override falls back to the CSS-declared
+    // transition, which is what honors prefers-reduced-motion. Commit that
+    // as its own state before changing the height so the browser has two
     // genuinely distinct states to transition between.
     el.style.transition = '';
     void el.offsetHeight;
     el.style.height = targetHeight + 'px';
 
-    // Once settled, release the fixed pixel height back to natural sizing
-    // so a later window resize (or anything else that changes the content's
-    // natural height without going through this function) isn't stuck
-    // clipped to a stale pinned value.
-    const clearFixedHeight = (e) => {
-      if (e.target !== el || e.propertyName !== 'height') return;
+    // Once settled, hand the height back to natural sizing so a later
+    // window resize isn't stuck at a stale pinned value. Because the target
+    // above was measured against real auto sizing, this changes nothing
+    // visually -- there's no final correction to snap.
+    let released = false;
+    const release = () => {
+      if (released) return;
+      released = true;
       el.style.height = '';
-      el.removeEventListener('transitionend', clearFixedHeight);
+      el.removeEventListener('transitionend', onEnd);
+      clearTimeout(fallback);
     };
-    el.addEventListener('transitionend', clearFixedHeight);
+    const onEnd = (e) => {
+      if (e.target !== el || e.propertyName !== 'height') return;
+      release();
+    };
+    el.addEventListener('transitionend', onEnd);
+    // Safety net: transitionend never fires if there's no transition to run
+    // at all -- most notably under prefers-reduced-motion, where the CSS
+    // disables it. Without this the height would stay pinned to a number
+    // that's correct now but goes stale on the next window resize.
+    const fallback = setTimeout(release, 400);
   }
 
   function renderTimes() {
@@ -445,7 +458,7 @@
 
     const hours = CONFIG.hours.filter((hour) => !isPastSlot(selectedDate, hour));
 
-    animateCardHeight(cardInner, () => {
+    animateListHeight(timeList, () => {
       if (pendingSelectionClear) {
         pendingSelectionClear = false;
         selectedSlots.clear();

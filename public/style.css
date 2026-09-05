@@ -360,7 +360,10 @@ main {
   max-height: 330px;
   overflow-y: auto;
   padding-right: 2px;
-  transition: max-height 220ms ease;
+  /* Animating height (not max-height) is what lets the list shrink smoothly
+     as well as grow -- a max-height only caps growth, so a shrink would snap
+     straight to the smaller size with nothing to animate from. */
+  transition: height 220ms ease;
 }
 
 .time-slot {
@@ -541,7 +544,7 @@ main {
 }
 
 .card-inner {
-  transition: transform 320ms cubic-bezier(0.2, 0, 0, 1), opacity 320ms cubic-bezier(0.2, 0, 0, 1), filter 320ms ease, height 220ms ease;
+  transition: transform 320ms cubic-bezier(0.2, 0, 0, 1), opacity 320ms cubic-bezier(0.2, 0, 0, 1), filter 320ms ease;
   overflow: hidden;
 }
 
