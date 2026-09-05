@@ -153,6 +153,43 @@
   }
   .hour-chip.booked:hover { border-color: #f3b8b8; }
 
+  /* --- Notifications (Telegram) panel -- same shell language as .block-form --- */
+  .notify-panel {
+    display: flex; gap: 14px; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    margin-bottom: 18px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    padding: 14px 16px;
+    border-radius: var(--radius-md);
+  }
+  .notify-panel-left { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .notify-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--muted-2); }
+  .notify-dot.on { background: var(--green-strong); }
+  .notify-status-text { font-size: 0.86rem; font-weight: 700; color: var(--ink); }
+  .notify-status-sub { font-size: 0.8rem; color: var(--muted); margin-top: 1px; }
+  .notify-panel button {
+    background: var(--green-strong); color: #fff; font-weight: 700; font-size: 0.86rem;
+    border: none; padding: 9px 16px; border-radius: var(--radius-sm); cursor: pointer;
+    transition: background-color 120ms ease, transform 80ms ease;
+  }
+  .notify-panel button:hover { background: #0f6b30; }
+  .notify-panel button:active { transform: scale(0.97); }
+  .notify-panel button.ghost { background: none; color: var(--muted); border: 1px solid var(--border); }
+  .notify-panel button.ghost:hover { background: var(--surface-2); color: var(--ink); }
+  .notify-link-step {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 10px 12px; font-size: 0.84rem; color: var(--text);
+  }
+  .notify-link-code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-weight: 700; font-size: 0.9rem; letter-spacing: 0.02em;
+    background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px;
+    padding: 2px 8px;
+  }
+  .notify-link-step a { color: var(--green-strong); font-weight: 700; text-decoration: none; }
+  .notify-link-step a:hover { text-decoration: underline; }
+
   .toolbar { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
   .reservation-count { color: var(--muted); font-size: 0.85rem; font-weight: 600; font-variant-numeric: tabular-nums; }
   .toolbar-left { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
@@ -449,6 +486,17 @@
       </div>
       <div class="block-hours-chips" id="blockHours"></div>
     </div>
+  </div>
+
+  <div class="notify-panel" id="notifyPanel">
+    <div class="notify-panel-left">
+      <span class="notify-dot" id="notifyDot"></span>
+      <div>
+        <div class="notify-status-text" id="notifyStatusText">Checking notifications&hellip;</div>
+        <div class="notify-status-sub" id="notifyStatusSub"></div>
+      </div>
+    </div>
+    <div id="notifyActions"></div>
   </div>
 
   <div class="toolbar">

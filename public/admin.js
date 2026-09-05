@@ -602,6 +602,112 @@
     populateBlockForm();
     showAdmin();
     await loadBookings();
+    loadNotifyStatus();
+  }
+
+  // --- Notifications (Telegram) ---------------------------------------------
+  // Mirrors the confirm/reject/cancel pattern elsewhere in this file: plain
+  // authedFetch calls, re-render the panel from whatever the server says is
+  // true rather than trusting local state, and surface errors via toast.
+
+  async function loadNotifyStatus() {
+    try {
+      const res = await authedFetch('/api/admin/telegram/status');
+      renderNotifyPanel(await res.json());
+    } catch (err) {
+      // authedFetch already handles a 401 (bounces to login); anything else
+      // just leaves the panel on its "Checking..." state rather than
+      // breaking the rest of the admin page over a non-critical feature.
+    }
+  }
+
+  function renderNotifyPanel(status) {
+    const dot = el('notifyDot');
+    const text = el('notifyStatusText');
+    const sub = el('notifyStatusSub');
+    const actions = el('notifyActions');
+
+    if (!status.configured) {
+      dot.className = 'notify-dot';
+      text.textContent = 'Telegram notifications not set up';
+      sub.textContent = 'Ask your developer to add TELEGRAM_BOT_TOKEN to this deployment.';
+      actions.innerHTML = '';
+      return;
+    }
+
+    if (status.connected) {
+      dot.className = 'notify-dot on';
+      text.textContent = 'Telegram notifications are on';
+      sub.textContent = "You'll get a message here whenever a new booking comes in.";
+      actions.innerHTML = '<button type="button" class="ghost" id="notifyDisconnectBtn">Disconnect</button>';
+      el('notifyDisconnectBtn').addEventListener('click', disconnectNotify);
+      return;
+    }
+
+    dot.className = 'notify-dot';
+    text.textContent = 'Telegram notifications are off';
+    sub.textContent = 'Connect once and every new booking pings your phone.';
+    actions.innerHTML = '<button type="button" id="notifyConnectBtn">Connect Telegram</button>';
+    el('notifyConnectBtn').addEventListener('click', startNotifyLink);
+  }
+
+  async function startNotifyLink() {
+    try {
+      const res = await authedFetch('/api/admin/telegram/start-link', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.error || 'Could not start linking', 'error');
+        return;
+      }
+      renderLinkStep(data.code, data.botUsername);
+    } catch (err) {
+      showToast('Network error. Please try again.', 'error');
+    }
+  }
+
+  function renderLinkStep(code, botUsername) {
+    const actions = el('notifyActions');
+    const openBotHtml = botUsername
+      ? `<a href="https://t.me/${encodeURIComponent(botUsername)}?start=${encodeURIComponent(code)}" target="_blank" rel="noopener">Open the bot</a> and tap Send,`
+      : `Message the bot`;
+    actions.innerHTML = `
+      <div class="notify-link-step">
+        <span>${openBotHtml} or send it this code: <span class="notify-link-code">${escapeHtml(code)}</span></span>
+        <button type="button" id="notifyFinishBtn">I've sent it</button>
+      </div>
+    `;
+    el('notifyFinishBtn').addEventListener('click', finishNotifyLink);
+  }
+
+  async function finishNotifyLink() {
+    const btn = el('notifyFinishBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Checking\u2026'; }
+    try {
+      const res = await authedFetch('/api/admin/telegram/finish-link', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.error || "Couldn't find that message yet -- try again in a moment.", 'error');
+        if (btn) { btn.disabled = false; btn.textContent = "I've sent it"; }
+        return;
+      }
+      showToast('Telegram connected', 'success');
+      loadNotifyStatus();
+    } catch (err) {
+      showToast('Network error. Please try again.', 'error');
+      if (btn) { btn.disabled = false; btn.textContent = "I've sent it"; }
+    }
+  }
+
+  async function disconnectNotify() {
+    const ok = await showConfirm('Turn off Telegram notifications for this facility?');
+    if (!ok) return;
+    try {
+      await authedFetch('/api/admin/telegram/disconnect', { method: 'POST' });
+      showToast('Telegram disconnected', 'success');
+      loadNotifyStatus();
+    } catch (err) {
+      showToast('Network error. Please try again.', 'error');
+    }
   }
 
   (async function init() {

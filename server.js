@@ -282,6 +282,47 @@ app.delete('/api/admin/bookings/:id', requireAdmin, async (req, res) => {
   }
 });
 
+// --- Telegram booking notifications -----------------------------------------
+// See lib/store.js's "Telegram notification linking" section for how
+// linking actually works (one shared bot, per-facility chat_id, no
+// webhook). These routes are just the admin-panel-facing surface of it.
+
+app.get('/api/admin/telegram/status', requireAdmin, async (req, res) => {
+  try {
+    res.json(await store.getTelegramStatus());
+  } catch (err) {
+    console.error('GET /api/admin/telegram/status error:', err);
+    res.status(500).json({ error: 'Could not load Telegram status.' });
+  }
+});
+
+app.post('/api/admin/telegram/start-link', requireAdmin, async (req, res) => {
+  try {
+    res.json(await store.startTelegramLink());
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/telegram/finish-link', requireAdmin, async (req, res) => {
+  try {
+    res.json(await store.finishTelegramLink());
+  } catch (err) {
+    const status = err.code === 'NOT_FOUND' ? 404 : 400;
+    res.status(status).json({ error: err.message, code: err.code });
+  }
+});
+
+app.post('/api/admin/telegram/disconnect', requireAdmin, async (req, res) => {
+  try {
+    await store.disconnectTelegram();
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('POST /api/admin/telegram/disconnect error:', err);
+    res.status(500).json({ error: 'Could not disconnect Telegram.' });
+  }
+});
+
 // Vercel wraps this file as a serverless function and calls the exported
 // app directly, so app.listen() must only run when the file is executed
 // as a normal Node process (local dev, or a persistent host like Render).
