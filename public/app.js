@@ -339,6 +339,22 @@
     renderTimes();
   }
 
+  // Locks the list's current rendered height, runs the content update, then
+  // animates to the new content's natural height (capped the same way the
+  // CSS max-height already caps it). Without this, switching to a date with
+  // a different number of available slots snaps the box to its new size
+  // instantly, which reads as a jump/glitch rather than a resize.
+  function animateListHeight(listEl, updateFn) {
+    const startHeight = listEl.getBoundingClientRect().height;
+    listEl.style.maxHeight = startHeight + 'px';
+    void listEl.offsetHeight; // force layout so the browser registers the starting height
+    updateFn();
+    const targetHeight = Math.min(listEl.scrollHeight, 330);
+    requestAnimationFrame(() => {
+      listEl.style.maxHeight = targetHeight + 'px';
+    });
+  }
+
   function renderTimes() {
     const dateObj = new Date(selectedDate + 'T00:00:00');
     timesHeading.textContent = dateObj.toLocaleDateString(undefined, {
@@ -349,43 +365,45 @@
 
     const hours = CONFIG.hours.filter((hour) => !isPastSlot(selectedDate, hour));
 
-    timeList.innerHTML = '';
+    animateListHeight(timeList, () => {
+      timeList.innerHTML = '';
 
-    if (hours.length === 0) {
-      const empty = document.createElement('div');
-      empty.className = 'time-empty';
-      empty.textContent = 'No times available for this date.';
-      timeList.appendChild(empty);
-      return;
-    }
-
-    hours.forEach((hour) => {
-      const key = `${currentCourtId}-${hour}`;
-      const booking = dayBookings[key];
-      const selKey = `${currentCourtId}-${selectedDate}-${hour}`;
-      const isSelected = selectedSlots.has(selKey);
-
-      const btn = document.createElement('button');
-      btn.type = 'button';
-
-      if (booking && booking.status === 'pending') {
-        btn.className = 'time-slot unavailable pending';
-        btn.disabled = true;
-        btn.innerHTML = `<span class="pending-time">${fmtTime(hour)}</span><span class="pending-badge">Pending</span>`;
-        timeList.appendChild(btn);
+      if (hours.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'time-empty';
+        empty.textContent = 'No times available for this date.';
+        timeList.appendChild(empty);
         return;
-      } else if (booking) {
-        btn.className = 'time-slot unavailable';
-        btn.disabled = true;
-      } else if (isSelected) {
-        btn.className = 'time-slot selected';
-        btn.addEventListener('click', () => toggleSlot(currentCourtId, selectedDate, hour));
-      } else {
-        btn.className = 'time-slot';
-        btn.addEventListener('click', () => toggleSlot(currentCourtId, selectedDate, hour));
       }
-      btn.innerHTML = `<span class="dot"></span><span>${fmtTime(hour)}</span>`;
-      timeList.appendChild(btn);
+
+      hours.forEach((hour) => {
+        const key = `${currentCourtId}-${hour}`;
+        const booking = dayBookings[key];
+        const selKey = `${currentCourtId}-${selectedDate}-${hour}`;
+        const isSelected = selectedSlots.has(selKey);
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+
+        if (booking && booking.status === 'pending') {
+          btn.className = 'time-slot unavailable pending';
+          btn.disabled = true;
+          btn.innerHTML = `<span class="pending-time">${fmtTime(hour)}</span><span class="pending-badge">Pending</span>`;
+          timeList.appendChild(btn);
+          return;
+        } else if (booking) {
+          btn.className = 'time-slot unavailable';
+          btn.disabled = true;
+        } else if (isSelected) {
+          btn.className = 'time-slot selected';
+          btn.addEventListener('click', () => toggleSlot(currentCourtId, selectedDate, hour));
+        } else {
+          btn.className = 'time-slot';
+          btn.addEventListener('click', () => toggleSlot(currentCourtId, selectedDate, hour));
+        }
+        btn.innerHTML = `<span class="dot"></span><span>${fmtTime(hour)}</span>`;
+        timeList.appendChild(btn);
+      });
     });
   }
 

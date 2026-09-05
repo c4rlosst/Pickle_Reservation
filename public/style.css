@@ -360,6 +360,7 @@ main {
   max-height: 330px;
   overflow-y: auto;
   padding-right: 2px;
+  transition: max-height 220ms ease;
 }
 
 .time-slot {
@@ -1010,6 +1011,7 @@ main {
   .success-icon { animation: none; opacity: 1; box-shadow: 0 0 16px 3px rgba(34, 197, 94, 0.35); }
   .success-icon-circle, .success-icon-check { animation: none; transform: scale(1); }
   .success-icon-check { stroke-dashoffset: 0; }
+  .time-list { transition: none; }
 }
 
 .success-box h3 { margin: 0 0 8px; font-size: 1.2rem; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
