@@ -90,8 +90,9 @@ app.get('/api/bookings', async (req, res) => {
       date: b.date,
       hour: b.hour,
       status: b.status, // pending | confirmed | blocked
-      // Don't leak customer contact info (or screenshots) to the public booking grid
-      name: b.status === 'blocked' ? null : b.name,
+      // Public grid only needs occupancy, never who booked it -- never send
+      // real customer names (or contact info, or screenshots) here.
+      name: null,
     }));
     res.json({ bookings });
   } catch (err) {
