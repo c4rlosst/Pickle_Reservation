@@ -123,6 +123,12 @@
     const booted = await (bootstrapped('config') || Promise.resolve(null));
     CONFIG = booted || await (await fetch('/api/config')).json();
 
+    if (CONFIG.name) {
+      el('venueName').textContent = CONFIG.name;
+      el('modalVenueName').textContent = CONFIG.name;
+      document.title = `${CONFIG.name} \u2014 Court Booking`;
+    }
+
     el('venueCourtsMeta').textContent = `${CONFIG.courts.length} court${CONFIG.courts.length > 1 ? 's' : ''}`;
     el('venueHoursMeta').textContent = `${fmtHour(CONFIG.openHour)} – ${fmtHour(CONFIG.closeHour)}`;
     el('venuePrice').textContent = `₱${CONFIG.pricePerHour}`;

@@ -156,6 +156,13 @@
   async function loadConfig() {
     const res = await fetch('/api/config');
     CONFIG = await res.json();
+
+    if (CONFIG.name) {
+      el('siteVenueName').textContent = CONFIG.name;
+      el('siteVenueSub').textContent = `Manage ${CONFIG.name} court bookings`;
+      el('siteMark').textContent = CONFIG.name.trim().charAt(0).toUpperCase() || 'F';
+      document.title = `Admin \u2014 ${CONFIG.name}`;
+    }
   }
 
   // Local calendar date as YYYY-MM-DD -- NOT toISOString(), which is UTC
