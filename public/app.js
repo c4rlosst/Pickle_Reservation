@@ -801,6 +801,18 @@
         }
         return;
       }
+      el('successName').textContent = nameValue;
+      el('successAmount').textContent = `\u20b1${transactionTotal(selectedSlots.size)}`;
+      const successSlots = Array.from(selectedSlots.values()).sort(
+        (a, b) => a.date.localeCompare(b.date) || a.courtId - b.courtId || a.hour - b.hour
+      );
+      el('successSlots').innerHTML = successSlots
+        .map((s) => {
+          const shortDate = new Date(s.date + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+          return `<div class="success-summary-row"><span>${shortDate}, ${fmtTime(s.hour)}</span><span>${courtName(s.courtId)}</span></div>`;
+        })
+        .join('');
+
       stopHoldCountdown();
       currentHold = null;
       el('holdTimer').classList.add('hidden');

@@ -1021,3 +1021,44 @@ main {
 
 .success-box h3 { margin: 0 0 8px; font-size: 1.2rem; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
 .success-box p { color: var(--muted); font-size: 0.9rem; font-weight: 500; line-height: 1.5; margin: 0 0 18px; }
+
+.success-summary {
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  margin-bottom: 18px;
+  text-align: left;
+}
+
+.success-summary-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 6px 0;
+}
+
+.success-summary-row:not(:last-child) {
+  border-bottom: 1px solid var(--border);
+}
+
+.success-summary-row span:last-child {
+  color: var(--ink);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.success-receipt-hint {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 600;
+  margin: 0 0 16px;
+}
+
