@@ -373,8 +373,18 @@
     // to commit that as its own separate style/layout state before doing
     // anything else -- forcing a reflow (offsetHeight) makes this reliable
     // without depending on requestAnimationFrame timing.
+    //
+    // This locks an explicit `height`, not `max-height`. A max-height only
+    // caps growth -- it does nothing to stop a box from shrinking below it,
+    // so when the new content was SHORTER, the box would immediately drop
+    // to its new natural (smaller) size the instant updateFn() ran, before
+    // the transition ever got a chance to animate anything: growing worked
+    // (content was being clipped down to the old max-height, then released)
+    // but shrinking always snapped instantly. Locking a real `height`
+    // pins the box at the old size in both directions, so there is always
+    // a genuine start state to transition from.
     el.style.transition = 'none';
-    el.style.maxHeight = startHeight + 'px';
+    el.style.height = startHeight + 'px';
     void el.offsetHeight;
 
     updateFn();
@@ -386,7 +396,18 @@
     // genuinely distinct states to transition between.
     el.style.transition = '';
     void el.offsetHeight;
-    el.style.maxHeight = targetHeight + 'px';
+    el.style.height = targetHeight + 'px';
+
+    // Once settled, release the fixed pixel height back to natural sizing
+    // so a later window resize (or anything else that changes the content's
+    // natural height without going through this function) isn't stuck
+    // clipped to a stale pinned value.
+    const clearFixedHeight = (e) => {
+      if (e.target !== el || e.propertyName !== 'height') return;
+      el.style.height = '';
+      el.removeEventListener('transitionend', clearFixedHeight);
+    };
+    el.addEventListener('transitionend', clearFixedHeight);
   }
 
   function renderTimes() {
