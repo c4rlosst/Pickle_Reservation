@@ -124,12 +124,77 @@
     loginBox.classList.remove('hidden');
     adminMain.classList.add('hidden');
     el('loginError').textContent = err || '';
+    el('changePasswordBtn').classList.add('hidden');
   }
 
   function showAdmin() {
     loginBox.classList.add('hidden');
     adminMain.classList.remove('hidden');
+    el('changePasswordBtn').classList.remove('hidden');
   }
+
+  // --- Change admin password ---------------------------------------------
+  const changePasswordModal = el('changePasswordModal');
+  const changePasswordForm = el('changePasswordForm');
+  const changePasswordError = el('changePasswordError');
+
+  function openChangePasswordModal() {
+    changePasswordForm.reset();
+    changePasswordError.textContent = '';
+    changePasswordModal.classList.remove('hidden');
+    requestAnimationFrame(() => el('cpCurrent').focus());
+  }
+
+  function closeChangePasswordModal() {
+    changePasswordModal.classList.add('hidden');
+  }
+
+  el('changePasswordBtn').addEventListener('click', openChangePasswordModal);
+  el('changePasswordCancel').addEventListener('click', closeChangePasswordModal);
+  changePasswordModal.addEventListener('click', (e) => {
+    if (e.target === changePasswordModal) closeChangePasswordModal();
+  });
+
+  changePasswordForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    changePasswordError.textContent = '';
+
+    const current = el('cpCurrent').value;
+    const next = el('cpNew').value;
+    const confirm = el('cpConfirm').value;
+
+    if (next.length < 8) {
+      changePasswordError.textContent = 'New password must be at least 8 characters.';
+      return;
+    }
+    if (next !== confirm) {
+      changePasswordError.textContent = "New passwords don't match.";
+      return;
+    }
+
+    const submitBtn = el('changePasswordSubmit');
+    submitBtn.disabled = true;
+    try {
+      const res = await fetch('/api/admin/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': current },
+        body: JSON.stringify({ newPassword: next }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        changePasswordError.textContent = data.error || 'Could not change password.';
+        return;
+      }
+      adminPassword = next;
+      sessionStorage.setItem('fora_admin_pw', next);
+      closeChangePasswordModal();
+      showToast('Password changed.', 'success');
+    } catch (err) {
+      changePasswordError.textContent = 'Network error. Please try again.';
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
 
   el('loginBtn').addEventListener('click', async () => {
     const pw = el('password').value;

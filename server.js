@@ -64,6 +64,7 @@ async function requireAdmin(req, res, next) {
     if (supplied && (await store.verifyAdminPassword(supplied))) return next();
     res.status(401).json({ error: 'Unauthorized' });
   } catch (err) {
+    if (err.code === 'LOCKED') return res.status(429).json({ error: err.message, code: 'LOCKED' });
     console.error('requireAdmin error:', err);
     res.status(500).json({ error: 'Could not verify admin password.' });
   }
@@ -191,8 +192,20 @@ app.post('/api/admin/login', async (req, res) => {
     if (await store.verifyAdminPassword(password)) return res.json({ ok: true });
     res.status(401).json({ ok: false, error: 'Incorrect password' });
   } catch (err) {
+    if (err.code === 'LOCKED') return res.status(429).json({ ok: false, error: err.message, code: 'LOCKED' });
     console.error('POST /api/admin/login error:', err);
     res.status(500).json({ ok: false, error: 'Could not verify password.' });
+  }
+});
+
+// Admin panel's "Change password" action. requireAdmin already confirmed the
+// caller knows the CURRENT password, so this only needs the new one.
+app.post('/api/admin/change-password', requireAdmin, async (req, res) => {
+  try {
+    await store.changeAdminPassword(req.body?.newPassword);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 

@@ -16,7 +16,42 @@
     max-width: 1100px;
     margin: 0 auto;
     padding: 32px 24px 18px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
   }
+  .site-header-action {
+    flex: none;
+    padding: 9px 16px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .site-header-action:hover { border-color: var(--border-strong); background: var(--surface-2); }
+  .site-header-action:active { transform: scale(0.96); }
+  .change-pw-title { margin: 0 0 16px; font-size: 1.05rem; font-weight: 800; color: var(--ink); }
+  .change-pw-label { display: block; font-size: 0.78rem; font-weight: 700; color: var(--muted); margin: 12px 0 6px; }
+  .change-pw-label:first-of-type { margin-top: 0; }
+  .change-pw-input {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    border: 1.5px solid var(--border);
+    background: var(--card-bg);
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 0.92rem;
+    box-sizing: border-box;
+  }
+  .change-pw-input:focus { outline: none; border-color: var(--green-strong); }
+  #changePasswordModal .error-msg { margin-top: 10px; }
   .site-brand { display: flex; align-items: center; gap: 12px; }
   .site-mark {
     width: 30px; height: 30px; flex: none;
@@ -453,6 +488,7 @@
       <p id="siteVenueSub">Manage FORA Pickleball court bookings</p>
     </div>
   </div>
+  <button type="button" class="site-header-action hidden" id="changePasswordBtn">Change password</button>
 </header>
 <div class="site-divider" aria-hidden="true"><div class="site-divider-line"></div></div>
 
@@ -543,6 +579,25 @@
 
 <div class="lightbox hidden" id="lightbox"><img id="lightboxImg" alt="Payment screenshot" /></div>
 <div class="lightbox hidden" id="textLightbox"><div class="text-lightbox-card" id="textLightboxContent"></div></div>
+
+<div class="lightbox hidden" id="changePasswordModal">
+  <div class="text-lightbox-card confirm-modal-card" role="dialog" aria-modal="true">
+    <h3 class="change-pw-title">Change admin password</h3>
+    <form id="changePasswordForm">
+      <label class="change-pw-label" for="cpCurrent">Current password</label>
+      <input class="change-pw-input" type="password" id="cpCurrent" autocomplete="current-password" required />
+      <label class="change-pw-label" for="cpNew">New password</label>
+      <input class="change-pw-input" type="password" id="cpNew" autocomplete="new-password" minlength="8" required />
+      <label class="change-pw-label" for="cpConfirm">Confirm new password</label>
+      <input class="change-pw-input" type="password" id="cpConfirm" autocomplete="new-password" minlength="8" required />
+      <div class="error-msg" id="changePasswordError"></div>
+      <div class="confirm-modal-actions">
+        <button type="button" class="confirm-modal-cancel" id="changePasswordCancel">Cancel</button>
+        <button type="submit" class="confirm-modal-ok" id="changePasswordSubmit">Save password</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <div class="lightbox hidden" id="confirmModal">
   <div class="text-lightbox-card confirm-modal-card" role="dialog" aria-modal="true">
