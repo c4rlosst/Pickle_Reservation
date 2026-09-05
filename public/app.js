@@ -346,13 +346,25 @@
   // instantly, which reads as a jump/glitch rather than a resize.
   function animateListHeight(listEl, updateFn) {
     const startHeight = listEl.getBoundingClientRect().height;
+    // Lock the starting height with transitions off, and force the browser
+    // to commit that as its own separate style/layout state -- relying on
+    // requestAnimationFrame for this step is timing-fragile (it can be
+    // skipped or delayed, e.g. while the tab isn't the active one), which
+    // is what made shrinking silently snap instead of animating.
+    listEl.style.transition = 'none';
     listEl.style.maxHeight = startHeight + 'px';
-    void listEl.offsetHeight; // force layout so the browser registers the starting height
+    void listEl.offsetHeight;
+
     updateFn();
+
     const targetHeight = Math.min(listEl.scrollHeight, 330);
-    requestAnimationFrame(() => {
-      listEl.style.maxHeight = targetHeight + 'px';
-    });
+    // Clear the inline override (falls back to the CSS-declared transition,
+    // which is what respects prefers-reduced-motion) and commit THAT as its
+    // own state before changing the height, so the browser has two distinct
+    // states to transition between.
+    listEl.style.transition = '';
+    void listEl.offsetHeight;
+    listEl.style.maxHeight = targetHeight + 'px';
   }
 
   function renderTimes() {
