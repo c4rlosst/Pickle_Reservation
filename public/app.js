@@ -128,7 +128,11 @@
 
   courtSelect.addEventListener('change', () => {
     currentCourtId = Number(courtSelect.value);
-    loadTimes();
+    // /api/bookings returns the whole day across every court, and
+    // dayBookings is keyed by court, so switching courts is purely a
+    // re-render. It used to refetch the exact same data and wait on a
+    // round trip before showing anything.
+    renderTimes();
   });
 
   function isPastSlot(dateStr, hour) {
@@ -204,7 +208,7 @@
         showToast(data.error || 'One of those slots was just taken. Please pick another.', 'error');
         selectedSlots.clear();
         updateSummaryBar();
-        await loadTimes();
+        await loadTimes(true);
         return;
       }
       currentHold = { groupId: data.groupId, holdExpiresAt: data.holdExpiresAt };
@@ -225,6 +229,9 @@
     const { groupId } = currentHold;
     currentHold = null;
     stopHoldCountdown();
+    // Those slots are free again, so don't let a cached copy of the day
+    // keep showing them as held.
+    dayCache.clear();
     fetch(`/api/bookings/hold/${groupId}`, { method: 'DELETE' }).catch(() => {});
   }
 
@@ -278,7 +285,7 @@
     selectedSlots.clear();
     updateSummaryBar();
     showToast('Your reserved time ran out. Please select your slot(s) again.', 'error');
-    loadTimes();
+    loadTimes(true);
   }
 
   // --- Calendar ---
@@ -348,13 +355,48 @@
   });
 
   // --- Times list ---
-  async function loadTimes() {
-    const res = await fetch(`/api/bookings?date=${selectedDate}`);
+
+  // A day's availability is fetched once and reused when the customer flips
+  // back to a date they already looked at, instead of paying for another
+  // round trip every single time. Deliberately short-lived, because someone
+  // else may be booking at the same moment -- and anything that changes
+  // availability from this browser clears it outright (see loadTimes(true)
+  // at every such call site). Worst case a slot shown as free was just
+  // taken by someone else, and the server refuses the hold with a clear
+  // message -- which it already does regardless of caching, since the
+  // database is what actually guarantees a slot can't be double-booked.
+  const dayCache = new Map();
+  const DAY_CACHE_MS = 20_000;
+
+  async function fetchDay(date, fresh) {
+    const cached = dayCache.get(date);
+    if (!fresh && cached && Date.now() - cached.at < DAY_CACHE_MS) return cached.bookings;
+    const res = await fetch(`/api/bookings?date=${date}`);
     const data = await res.json();
+    const bookings = data.bookings || [];
+    dayCache.set(date, { at: Date.now(), bookings });
+    return bookings;
+  }
+
+  function applyDay(bookings) {
     dayBookings = {};
-    (data.bookings || []).forEach((b) => {
+    bookings.forEach((b) => {
       dayBookings[`${b.courtId}-${b.hour}`] = b;
     });
+  }
+
+  // `fresh` skips the cache -- pass it whenever availability may have just
+  // changed (a hold was taken or released, a booking went through, a hold
+  // expired), so we never render a stale day right after changing it.
+  async function loadTimes(fresh) {
+    const date = selectedDate;
+    if (fresh) dayCache.clear();
+    const bookings = await fetchDay(date, fresh);
+    // Guard against a slower earlier request landing after a newer one and
+    // painting the wrong day's availability -- easy to trigger by clicking
+    // through dates quickly.
+    if (date !== selectedDate) return;
+    applyDay(bookings);
     renderTimes();
   }
 
@@ -626,7 +668,7 @@
     closeModal();
     selectedSlots.clear();
     updateSummaryBar();
-    await loadTimes();
+    await loadTimes(true);
   });
 
   el('screenshot').addEventListener('change', () => {
@@ -735,7 +777,7 @@
           currentHold = null;
           selectedSlots.clear();
           updateSummaryBar();
-          await loadTimes();
+          await loadTimes(true);
         }
         return;
       }
@@ -749,7 +791,7 @@
       bookingCard.classList.add('success-compact');
       selectedSlots.clear();
       updateSummaryBar();
-      await loadTimes();
+      await loadTimes(true);
     } catch (err) {
       formError.textContent = 'Network error. Please try again.';
       submitBtn.disabled = false;
@@ -758,9 +800,25 @@
   });
 
   (async function init() {
-    await loadConfig();
+    // Fire both requests at once rather than waiting for the config
+    // response before even asking for availability. The availability
+    // request only needs selectedDate, which is computed locally, so the
+    // old sequential version was stacking two full round trips back to
+    // back on every single page load for no reason.
+    const initialDate = selectedDate;
+    const configReady = loadConfig();
+    const dayReady = fetchDay(initialDate);
+
+    await configReady;
     updateSummaryBar();
     renderCalendar();
-    await loadTimes();
+
+    const bookings = await dayReady;
+    // Skip if the customer already picked a different date while this was
+    // still loading -- that click's own load owns the list now.
+    if (initialDate === selectedDate) {
+      applyDay(bookings);
+      renderTimes();
+    }
   })();
 })();
