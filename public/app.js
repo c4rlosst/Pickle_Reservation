@@ -25,6 +25,7 @@
   const timesHeading = el('timesHeading');
   const timeList = el('timeList');
   const bookingCard = el('bookingCard');
+  const cardInner = el('cardInner');
   const confirmPanel = el('confirmPanel');
   const modalSub = el('modalSub');
   const bookingForm = el('bookingForm');
@@ -344,27 +345,37 @@
   // CSS max-height already caps it). Without this, switching to a date with
   // a different number of available slots snaps the box to its new size
   // instantly, which reads as a jump/glitch rather than a resize.
-  function animateListHeight(listEl, updateFn) {
-    const startHeight = listEl.getBoundingClientRect().height;
+  // Animates the WHOLE card's height when its content's natural size
+  // changes (e.g. switching to a date with a different number of available
+  // slots). This deliberately targets #cardInner -- the calendar and times
+  // columns are flex siblings under align-items: stretch, so animating the
+  // inner time-list's own max-height doesn't reliably move the outer card:
+  // whichever column has the taller natural content governs the row's
+  // height, and once the times list's content drops below the calendar's
+  // natural height, the row clamps to the calendar's fixed size and the
+  // list's own shrinking has no further visible effect -- which is exactly
+  // why shrinking looked like it "snapped" while growing didn't. Animating
+  // the outer wrapper's height sidesteps that entirely.
+  function animateCardHeight(el, updateFn) {
+    const startHeight = el.getBoundingClientRect().height;
     // Lock the starting height with transitions off, and force the browser
-    // to commit that as its own separate style/layout state -- relying on
-    // requestAnimationFrame for this step is timing-fragile (it can be
-    // skipped or delayed, e.g. while the tab isn't the active one), which
-    // is what made shrinking silently snap instead of animating.
-    listEl.style.transition = 'none';
-    listEl.style.maxHeight = startHeight + 'px';
-    void listEl.offsetHeight;
+    // to commit that as its own separate style/layout state before doing
+    // anything else -- forcing a reflow (offsetHeight) makes this reliable
+    // without depending on requestAnimationFrame timing.
+    el.style.transition = 'none';
+    el.style.maxHeight = startHeight + 'px';
+    void el.offsetHeight;
 
     updateFn();
 
-    const targetHeight = Math.min(listEl.scrollHeight, 330);
+    const targetHeight = el.scrollHeight;
     // Clear the inline override (falls back to the CSS-declared transition,
     // which is what respects prefers-reduced-motion) and commit THAT as its
-    // own state before changing the height, so the browser has two distinct
-    // states to transition between.
-    listEl.style.transition = '';
-    void listEl.offsetHeight;
-    listEl.style.maxHeight = targetHeight + 'px';
+    // own state before changing the height, so the browser has two
+    // genuinely distinct states to transition between.
+    el.style.transition = '';
+    void el.offsetHeight;
+    el.style.maxHeight = targetHeight + 'px';
   }
 
   function renderTimes() {
@@ -377,7 +388,7 @@
 
     const hours = CONFIG.hours.filter((hour) => !isPastSlot(selectedDate, hour));
 
-    animateListHeight(timeList, () => {
+    animateCardHeight(cardInner, () => {
       timeList.innerHTML = '';
 
       if (hours.length === 0) {

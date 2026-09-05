@@ -541,7 +541,8 @@ main {
 }
 
 .card-inner {
-  transition: transform 320ms cubic-bezier(0.2, 0, 0, 1), opacity 320ms cubic-bezier(0.2, 0, 0, 1), filter 320ms ease;
+  transition: transform 320ms cubic-bezier(0.2, 0, 0, 1), opacity 320ms cubic-bezier(0.2, 0, 0, 1), filter 320ms ease, max-height 220ms ease;
+  overflow: hidden;
 }
 
 .booking-card.confirm-open .card-inner {
@@ -1012,6 +1013,7 @@ main {
   .success-icon-circle, .success-icon-check { animation: none; transform: scale(1); }
   .success-icon-check { stroke-dashoffset: 0; }
   .time-list { transition: none; }
+  .card-inner { transition: none; }
 }
 
 .success-box h3 { margin: 0 0 8px; font-size: 1.2rem; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
