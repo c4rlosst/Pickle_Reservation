@@ -14,6 +14,15 @@
   // customer has paid), so nobody else can grab those slots while this
   // customer is off sending money. { groupId, holdExpiresAt } or null.
   let currentHold = null;
+  // Set by selectDate() when switching to a new date should also clear the
+  // current selection. Deferred until renderTimes()'s animateCardHeight
+  // callback runs (rather than done immediately in selectDate) so the
+  // selection-summary bar collapsing and the time-list swapping happen as
+  // ONE atomic, height-locked update -- otherwise the summary bar (and the
+  // Clear/Next buttons re-disabling) collapses instantly before the height
+  // animation even starts measuring, which is what made date switches look
+  // like they "snap" even when the time-list swap itself was animated.
+  let pendingSelectionClear = false;
   let holdCountdownInterval = null;
 
   const el = (id) => document.getElementById(id);
@@ -168,13 +177,13 @@
       }
       selectedSlots.set(key, { courtId, date, hour });
     }
+    // updateSummaryBar() runs as part of renderTimes()'s own height-locked
+    // update below, not separately here -- see the comment in renderTimes().
     renderTimes();
-    updateSummaryBar();
   }
 
   clearSelectionBtn.addEventListener('click', () => {
     selectedSlots.clear();
-    updateSummaryBar();
     renderTimes();
   });
 
@@ -321,8 +330,7 @@
     if (dateStr === selectedDate) return;
     selectedDate = dateStr;
     if (selectedSlots.size > 0) {
-      selectedSlots.clear();
-      updateSummaryBar();
+      pendingSelectionClear = true;
     }
     renderCalendar();
     loadTimes();
@@ -389,7 +397,24 @@
 
     updateFn();
 
-    const targetHeight = el.scrollHeight;
+    // Measure the TRUE natural height by briefly releasing the lock back to
+    // auto (transitions are still off, and nothing has been painted yet in
+    // this synchronous stretch of code, so this causes no visible flash)
+    // rather than reading el.scrollHeight while the box is still pinned to
+    // the OLD height. scrollHeight can under-/over-report here because
+    // some nested content's own layout depends on the container's current
+    // resolved size -- if that mismeasured value gets used as the
+    // transition's target, the box settles at a slightly wrong height and
+    // then, when the fixed height is later released back to auto for
+    // future resizes, it snaps that last little bit into place instead of
+    // just staying put. Measuring against real auto sizing up front avoids
+    // that entirely: the animated target and the eventual auto value are
+    // guaranteed to be the same number.
+    el.style.height = 'auto';
+    const targetHeight = el.getBoundingClientRect().height;
+    el.style.height = startHeight + 'px';
+    void el.offsetHeight;
+
     // Clear the inline override (falls back to the CSS-declared transition,
     // which is what respects prefers-reduced-motion) and commit THAT as its
     // own state before changing the height, so the browser has two
@@ -421,6 +446,11 @@
     const hours = CONFIG.hours.filter((hour) => !isPastSlot(selectedDate, hour));
 
     animateCardHeight(cardInner, () => {
+      if (pendingSelectionClear) {
+        pendingSelectionClear = false;
+        selectedSlots.clear();
+      }
+
       timeList.innerHTML = '';
 
       if (hours.length === 0) {
@@ -428,6 +458,7 @@
         empty.className = 'time-empty';
         empty.textContent = 'No times available for this date.';
         timeList.appendChild(empty);
+        updateSummaryBar();
         return;
       }
 
@@ -459,6 +490,13 @@
         btn.innerHTML = `<span class="dot"></span><span>${fmtTime(hour)}</span>`;
         timeList.appendChild(btn);
       });
+
+      // Runs inside the same height-locked update as the row rebuild above
+      // (rather than as a separate call after renderTimes() returns) so a
+      // selection change's summary bar and a date change's row list always
+      // resize together in one animation instead of the summary bar
+      // popping in/out on its own beat.
+      updateSummaryBar();
     });
   }
 
