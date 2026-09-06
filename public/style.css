@@ -435,7 +435,12 @@ main {
   overflow: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
+  /* Hide the scrollbar chrome (matches the day-strip above it) -- scrolling
+     still works via wheel/touch/drag, just without the bulky OS scrollbar. */
+  scrollbar-width: none;
 }
+
+.time-grid-wrap::-webkit-scrollbar { display: none; }
 
 .time-grid {
   display: grid;
