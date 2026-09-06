@@ -499,12 +499,6 @@ main {
   transition: color 120ms ease;
 }
 
-/* A row with at least one selected cell picks up the same green as its
-   selected cell(s), instead of staying a neutral gray next to a row
-   that's visibly highlighted. */
-.grid-row-label.selected { background: var(--green); }
-.grid-row-label.selected .grid-row-label-range { color: #06210f; }
-.grid-row-label.selected .grid-row-label-period { color: #06210f; opacity: 0.75; }
 
 .grid-corner {
   position: sticky;
@@ -555,7 +549,12 @@ main {
   transition: background-color 120ms ease, color 120ms ease, transform 80ms ease;
 }
 
-.grid-cell:hover:not(:disabled) { background: var(--gray-soft); }
+/* :not(.selected) keeps this from outranking .grid-cell.selected below --
+   without it, hovering an already-selected cell (still clickable, so
+   :hover applies) knocked it back to gray because :hover:not(:disabled)
+   has one more class-level selector than .selected and so wins on equal
+   specificity, making a selection look like it silently got undone. */
+.grid-cell:hover:not(:disabled):not(.selected) { background: var(--gray-soft); }
 .grid-cell:active:not(:disabled) { transform: scale(0.97); }
 
 .grid-cell-price {
@@ -570,6 +569,9 @@ main {
 }
 
 .grid-cell.selected .grid-cell-price { color: #06210f; opacity: 0.75; }
+
+.grid-cell.selected:hover:not(:disabled) { background: var(--green-strong); color: #fff; }
+.grid-cell.selected:hover:not(:disabled) .grid-cell-price { color: #fff; opacity: 0.8; }
 
 .grid-cell.unavailable {
   color: var(--muted-2);
