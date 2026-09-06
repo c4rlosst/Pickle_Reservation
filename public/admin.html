@@ -122,22 +122,36 @@
      especially at non-100% zoom -- some browsers barely render it at
      all. A dedicated, full-size button that calls showPicker() gives a
      reliable, big target that always opens the same native picker. */
-  .date-field { position: relative; display: inline-flex; align-items: center; }
-  .date-field input#blockDate { padding-right: 34px; }
-  /* Hide the browser's own calendar icon now that .date-field-btn is the
-     one real way to open the picker -- otherwise the two sit side by
-     side and look like two separate controls. display: none alone isn't
-     reliably honored on this specific browser-internal control across
-     Chromium/Edge builds, so also zero out its opacity and footprint. */
-  .date-field input#blockDate::-webkit-calendar-picker-indicator {
-    display: none;
-    opacity: 0;
-    -webkit-appearance: none;
-    appearance: none;
-    width: 0;
-    height: 0;
-    position: absolute;
-    pointer-events: none;
+  /* CSS alone can't reliably hide the browser's own calendar icon on
+     <input type="date"> -- ::-webkit-calendar-picker-indicator { display:
+     none } is honored inconsistently across Chromium/Edge/Electron
+     builds, so it kept showing up next to our own .date-field-btn as a
+     second icon no matter what we tried there. Instead of fighting that,
+     .date-field has a fixed width and clips its overflow, while the
+     input itself is rendered wider than that box -- pushing the native
+     icon physically outside the visible, clipped area. Nothing here
+     depends on a browser choosing to honor a hiding rule; it's just
+     layout math, so it's reliable everywhere. */
+  .date-field {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    width: 150px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+  /* The input supplies its own border/background normally (see the
+     shared .block-form input rule above) -- since it's now wider than
+     its clipping wrapper, strip those here so the wrapper's own border
+     above is the only visible edge, with no seam where the input's
+     right side gets cut off. */
+  .date-field input#blockDate {
+    width: 178px;
+    flex: none;
+    padding-right: 34px;
+    border: none;
+    border-radius: 0;
   }
   .date-field-btn {
     position: absolute;
@@ -149,7 +163,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: transparent;
+    background: var(--surface-2);
     border: none;
     border-radius: var(--radius-sm);
     color: var(--muted);
