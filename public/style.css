@@ -322,7 +322,10 @@ main {
   flex: none;
   width: 30px;
   height: 30px;
-  border-radius: 50%;
+  /* Rounded-square, matching the day-strip's "More" button shape instead
+     of a circle, so the calendar popover feels like part of the same
+     family of controls as the strip that opens it. */
+  border-radius: var(--radius-sm);
   background: var(--surface-2);
   border: 1px solid var(--border);
   color: var(--text);
