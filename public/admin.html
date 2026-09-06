@@ -124,6 +124,10 @@
      reliable, big target that always opens the same native picker. */
   .date-field { position: relative; display: inline-flex; align-items: center; }
   .date-field input#blockDate { padding-right: 34px; }
+  /* Hide the browser's own calendar icon now that .date-field-btn is the
+     one real way to open the picker -- otherwise the two sit side by
+     side and look like two separate controls. */
+  .date-field input#blockDate::-webkit-calendar-picker-indicator { display: none; }
   .date-field-btn {
     position: absolute;
     right: 4px;
