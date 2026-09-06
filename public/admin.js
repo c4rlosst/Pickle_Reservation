@@ -299,6 +299,23 @@
   el('blockCourt').addEventListener('change', updateBlockHoursAvailability);
   el('blockDate').addEventListener('change', updateBlockHoursAvailability);
 
+  // A dedicated button for opening the date field's native picker -- see
+  // the .date-field-btn comment in admin.html for why this exists instead
+  // of relying on the browser's own tiny calendar icon.
+  el('blockDateBtn').addEventListener('click', () => {
+    const input = el('blockDate');
+    if (typeof input.showPicker === 'function') {
+      try {
+        input.showPicker();
+        return;
+      } catch (err) {
+        // Falls through to focus() below (e.g. browsers that support
+        // showPicker() but still throw in some contexts).
+      }
+    }
+    input.focus();
+  });
+
   el('blockHours').addEventListener('click', (e) => {
     const chip = e.target.closest('.hour-chip');
     if (!chip || chip.disabled) return;
