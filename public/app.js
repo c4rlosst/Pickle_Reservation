@@ -655,8 +655,17 @@
       });
 
       hours.forEach((hour) => {
+        // A row can have more than one court selected at once, so "this
+        // row is selected" means at least one of its cells is -- checked
+        // up front so the label itself can pick up the same green
+        // treatment as its selected cell(s), instead of staying neutral
+        // while the row next to it is visibly highlighted.
+        const rowHasSelection = courts.some((court) =>
+          selectedSlots.has(`${court.id}-${selectedDate}-${hour}`)
+        );
+
         const rowLabel = document.createElement('div');
-        rowLabel.className = 'grid-row-label';
+        rowLabel.className = 'grid-row-label' + (rowHasSelection ? ' selected' : '');
         const timeParts = fmtTimeParts(hour);
         rowLabel.innerHTML = `<span class="grid-row-label-range">${timeParts.range}</span><span class="grid-row-label-period">${timeParts.period}</span>`;
         timeList.appendChild(rowLabel);

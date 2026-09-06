@@ -479,6 +479,7 @@ main {
   white-space: nowrap;
   border-right: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
+  transition: background-color 120ms ease;
 }
 
 .grid-row-label-range {
@@ -486,6 +487,7 @@ main {
   font-weight: 700;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
+  transition: color 120ms ease;
 }
 
 .grid-row-label-period {
@@ -494,7 +496,15 @@ main {
   letter-spacing: 0.03em;
   text-transform: uppercase;
   color: var(--muted);
+  transition: color 120ms ease;
 }
+
+/* A row with at least one selected cell picks up the same green as its
+   selected cell(s), instead of staying a neutral gray next to a row
+   that's visibly highlighted. */
+.grid-row-label.selected { background: var(--green); }
+.grid-row-label.selected .grid-row-label-range { color: #06210f; }
+.grid-row-label.selected .grid-row-label-period { color: #06210f; opacity: 0.75; }
 
 .grid-corner {
   position: sticky;
