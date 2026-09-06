@@ -194,54 +194,122 @@ main {
   margin-bottom: 8px;
 }
 
-/* --- Court select --- */
-.court-select-wrap { position: relative; }
-
-.court-select {
-  width: 100%;
-  appearance: none;
-  -webkit-appearance: none;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  color: var(--ink);
-  font: inherit;
-  font-family: var(--font-body);
-  font-weight: 600;
-  font-size: 0.92rem;
-  padding: 13px 40px 13px 14px;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: border-color 120ms ease;
-}
-
-.court-select:focus {
-  outline: none;
-  border-color: var(--green);
-  box-shadow: 0 0 0 3px var(--green-soft);
-}
-
-.court-select-wrap::after {
-  content: "";
-  position: absolute;
-  right: 16px;
-  top: 50%;
-  width: 8px;
-  height: 8px;
-  border-right: 2px solid var(--muted);
-  border-bottom: 2px solid var(--muted);
-  transform: translateY(-65%) rotate(45deg);
-  pointer-events: none;
-}
-
-/* --- Calendar + times layout --- */
-.schedule-columns {
+/* --- Day strip (replaces the old court dropdown) --- */
+.day-strip-row {
   display: flex;
-  gap: 24px;
-  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
-.calendar-col { flex: 1 1 240px; min-width: 230px; }
-.times-col { flex: 1 1 190px; min-width: 190px; }
+.day-strip {
+  flex: 1 1 auto;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.day-strip::-webkit-scrollbar { display: none; }
+
+.day-pill {
+  flex: 1 1 0;
+  min-width: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 8px 4px 9px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text);
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease, transform 80ms ease;
+}
+
+.day-pill:hover:not(.selected) { border-color: var(--border-strong); }
+.day-pill:active { transform: scale(0.96); }
+
+.day-pill-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.day-pill-num {
+  font-size: 1.05rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.day-pill-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--green);
+  margin-top: 1px;
+}
+
+.day-pill.today:not(.selected) .day-pill-label,
+.day-pill.today:not(.selected) .day-pill-num { color: var(--green-strong); }
+
+.day-pill.selected {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+}
+
+.day-pill.selected .day-pill-label { color: rgba(255, 255, 255, 0.65); }
+.day-pill.selected .day-pill-dot { background: #fff; }
+
+.day-strip-more {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 52px;
+  padding: 8px 4px 9px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  transition: border-color 120ms ease, background-color 120ms ease, transform 80ms ease;
+}
+
+.day-strip-more:hover { border-color: var(--border-strong); }
+.day-strip-more:active { transform: scale(0.96); }
+.day-strip-more.active { background: var(--surface-2); border-color: var(--border-strong); }
+.day-strip-more svg { color: var(--muted); }
+
+/* --- Calendar popover (the old always-visible month calendar, now opened
+   via the "More" button for dates outside the current week strip) --- */
+.calendar-popover-wrap { position: relative; }
+
+.calendar-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  width: 280px;
+  max-width: calc(100vw - 48px);
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16);
+  padding: 16px;
+}
 
 .month-nav {
   display: flex;
@@ -335,86 +403,163 @@ main {
   color: var(--ink);
 }
 
-.times-avail-legend {
+/* --- Grid legend --- */
+.grid-legend {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.78rem;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 0.76rem;
   font-weight: 600;
   color: var(--muted);
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
-.times-avail-legend .dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--green);
+.legend-item { display: flex; align-items: center; gap: 6px; }
+
+.legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
   display: inline-block;
-}
-
-.time-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 330px;
-  overflow-y: auto;
-  padding-right: 2px;
-  /* Animating height (not max-height) is what lets the list shrink smoothly
-     as well as grow -- a max-height only caps growth, so a shrink would snap
-     straight to the smaller size with nothing to animate from. */
-  transition: height 220ms ease;
-}
-
-.time-slot {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 10px 14px;
-  border-radius: var(--radius-sm);
-  border: 1.5px solid var(--border);
-  background: var(--card-bg);
-  color: var(--text);
-  font-size: 0.85rem;
-  font-weight: 500;
-  cursor: pointer;
-  font-variant-numeric: tabular-nums;
-  transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease, transform 80ms ease;
-}
-
-.time-slot .dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--green);
   flex: none;
 }
 
-.time-slot:hover:not(:disabled) { border-color: var(--green); }
-.time-slot:active:not(:disabled) { transform: scale(0.98); }
+.legend-dot.legend-available { background: var(--card-bg); border: 1.5px solid var(--border); }
+.legend-dot.legend-selected { background: var(--green); border: 1.5px solid var(--green); }
+.legend-dot.legend-booked { background: var(--gray-soft); border: 1.5px solid var(--border); }
+.legend-dot.legend-pending { background: var(--accent-amber-soft); border: 1.5px solid var(--amber-border); }
 
-.time-slot.selected {
+/* --- Time x court grid (replaces the old single-court vertical list) --- */
+.time-grid-wrap {
+  max-height: 380px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.time-grid {
+  display: grid;
+  min-width: 100%;
+  width: max-content;
+  /* animateListHeight() sets an explicit height directly on this element
+     (the one passed to it, #timeList) and transitions it -- the transition
+     has to live here, on the actual animated element, not on the scroll
+     wrapper around it. Height (not max-height) is what lets the grid shrink
+     smoothly as well as grow -- a max-height only caps growth, so a shrink
+     would snap straight to the smaller size with nothing to animate from. */
+  transition: height 220ms ease;
+}
+
+.grid-row-label,
+.grid-court-header {
+  position: sticky;
+  background: var(--surface-2);
+}
+
+.grid-row-label {
+  left: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 10px;
+  white-space: nowrap;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.grid-row-label-range {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.grid-row-label-period {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.grid-corner {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  background: var(--surface-2);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.grid-court-header {
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 6px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--ink);
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.grid-court-header:not(:last-child),
+.grid-row-label { border-right: 1px solid var(--border); }
+
+.grid-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 52px;
+  padding: 6px 8px;
+  border: none;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--card-bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  transition: background-color 120ms ease, color 120ms ease, transform 80ms ease;
+}
+
+.grid-cell:hover:not(:disabled) { background: var(--gray-soft); }
+.grid-cell:active:not(:disabled) { transform: scale(0.97); }
+
+.grid-cell-price {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.grid-cell.selected {
   background: var(--green);
-  border-color: var(--green);
   color: #06210f;
 }
 
-.time-slot.selected .dot { background: #06210f; }
+.grid-cell.selected .grid-cell-price { color: #06210f; opacity: 0.75; }
 
-.time-slot.unavailable {
+.grid-cell.unavailable {
   color: var(--muted-2);
-  border-color: var(--border);
   background: var(--gray-soft);
   cursor: not-allowed;
 }
 
-.time-slot.unavailable .dot { display: none; }
-
-.time-slot.pending {
-  justify-content: space-between;
-  border-color: var(--amber-border);
+.grid-cell.pending {
+  color: var(--accent-amber);
   background: var(--accent-amber-soft);
+  cursor: not-allowed;
 }
 
 .pending-time {

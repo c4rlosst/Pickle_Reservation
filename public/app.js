@@ -1,6 +1,5 @@
 (function () {
   let CONFIG = null;
-  let currentCourtId = null;
   let calendarMonth = firstOfMonth(new Date());
   let selectedDate = todayStr();
   let dayBookings = {}; // "courtId-hour" -> booking, for selectedDate
@@ -26,7 +25,9 @@
   let holdCountdownInterval = null;
 
   const el = (id) => document.getElementById(id);
-  const courtSelect = el('courtSelect');
+  const dayStrip = el('dayStrip');
+  const moreDatesBtn = el('moreDatesBtn');
+  const calendarPopover = el('calendarPopover');
   const monthLabel = el('monthLabel');
   const monthPrevBtn = el('monthPrevBtn');
   const monthNextBtn = el('monthNextBtn');
@@ -87,6 +88,19 @@
     return `${start.hour} ${start.period} - ${end.hour} ${end.period}`;
   }
 
+  // Split version for the grid's row labels: a short numeric range on its
+  // own line ("11 - 12") plus a small period line below ("AM" normally, or
+  // "AM-PM" for the one slot each day that crosses noon/midnight). Splitting
+  // it this way keeps every row label the same tidy two-line shape instead
+  // of the AM/PM-crossing row alone being a much longer single line that
+  // reads as cramped against the shorter ones around it.
+  function fmtTimeParts(h) {
+    const start = to12Hour(h);
+    const end = to12Hour(h + 1);
+    const period = start.period === end.period ? start.period : `${start.period}-${end.period}`;
+    return { range: `${start.hour} - ${end.hour}`, period };
+  }
+
   // "6 AM" style label for a single hour boundary (used for the venue meta row).
   function fmtHour(h) {
     const hour = h % 12 === 0 ? 12 : h % 12;
@@ -141,19 +155,7 @@
       locationLink.classList.add('hidden');
     }
 
-    courtSelect.innerHTML = CONFIG.courts.map((c) => `<option value="${c.id}">${c.name}</option>`).join('');
-    currentCourtId = CONFIG.courts[0].id;
-    courtSelect.value = String(currentCourtId);
   }
-
-  courtSelect.addEventListener('change', () => {
-    currentCourtId = Number(courtSelect.value);
-    // /api/bookings returns the whole day across every court, and
-    // dayBookings is keyed by court, so switching courts is purely a
-    // re-render. It used to refetch the exact same data and wait on a
-    // round trip before showing anything.
-    renderTimes();
-  });
 
   function isPastSlot(dateStr, hour) {
     const now = new Date();
@@ -359,8 +361,68 @@
       pendingSelectionClear = true;
     }
     renderCalendar();
+    renderDayStrip();
+    closeCalendarPopover();
     loadTimes();
   }
+
+  // --- Day strip (the row of tappable day pills above the grid) ----------
+  // Always shows the calendar week (Sun-Sat) containing today -- anything
+  // further out is reached through the "More" calendar popover instead of
+  // scrolling this strip indefinitely.
+  function renderDayStrip() {
+    const today = todayDate();
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - today.getDay());
+    const todayS = todayStr();
+    const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    dayStrip.innerHTML = '';
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(weekStart);
+      d.setDate(weekStart.getDate() + i);
+      const dateStr = fmtDate(d);
+      const isToday = dateStr === todayS;
+      const isSelected = dateStr === selectedDate;
+      const isPast = dateStr < todayS;
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'day-pill' + (isToday ? ' today' : '') + (isSelected ? ' selected' : '');
+      btn.innerHTML = `<span class="day-pill-label">${dayLabels[i]}</span><span class="day-pill-num">${d.getDate()}</span>`;
+      if (isToday) btn.innerHTML += '<span class="day-pill-dot"></span>';
+      if (isPast) {
+        btn.disabled = true;
+      } else {
+        btn.addEventListener('click', () => selectDate(dateStr));
+      }
+      dayStrip.appendChild(btn);
+    }
+  }
+
+  function openCalendarPopover() {
+    calendarPopover.classList.remove('hidden');
+    moreDatesBtn.classList.add('active');
+    moreDatesBtn.setAttribute('aria-expanded', 'true');
+  }
+
+  function closeCalendarPopover() {
+    calendarPopover.classList.add('hidden');
+    moreDatesBtn.classList.remove('active');
+    moreDatesBtn.setAttribute('aria-expanded', 'false');
+  }
+
+  moreDatesBtn.addEventListener('click', () => {
+    if (calendarPopover.classList.contains('hidden')) openCalendarPopover();
+    else closeCalendarPopover();
+  });
+
+  document.addEventListener('click', (e) => {
+    if (calendarPopover.classList.contains('hidden')) return;
+    if (e.target === moreDatesBtn || moreDatesBtn.contains(e.target)) return;
+    if (calendarPopover.contains(e.target)) return;
+    closeCalendarPopover();
+  });
 
   monthPrevBtn.addEventListener('click', () => {
     const candidate = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1);
@@ -510,6 +572,9 @@
     const fallback = setTimeout(release, 400);
   }
 
+  // Renders the court x time grid for selectedDate: one column per court
+  // (from CONFIG.courts), one row per operating hour, so every court's
+  // availability is visible at once instead of switching between courts.
   function renderTimes() {
     const dateObj = new Date(selectedDate + 'T00:00:00');
     timesHeading.textContent = dateObj.toLocaleDateString(undefined, {
@@ -519,6 +584,7 @@
     });
 
     const hours = CONFIG.hours.filter((hour) => !isPastSlot(selectedDate, hour));
+    const courts = CONFIG.courts;
 
     animateListHeight(timeList, () => {
       if (pendingSelectionClear) {
@@ -529,6 +595,7 @@
       timeList.innerHTML = '';
 
       if (hours.length === 0) {
+        timeList.style.gridTemplateColumns = '1fr';
         const empty = document.createElement('div');
         empty.className = 'time-empty';
         empty.textContent = 'No times available for this date.';
@@ -537,38 +604,59 @@
         return;
       }
 
+      timeList.style.gridTemplateColumns = `92px repeat(${courts.length}, minmax(96px, 1fr))`;
+
+      const corner = document.createElement('div');
+      corner.className = 'grid-corner';
+      timeList.appendChild(corner);
+
+      courts.forEach((court) => {
+        const header = document.createElement('div');
+        header.className = 'grid-court-header';
+        header.textContent = court.name;
+        timeList.appendChild(header);
+      });
+
       hours.forEach((hour) => {
-        const key = `${currentCourtId}-${hour}`;
-        const booking = dayBookings[key];
-        const selKey = `${currentCourtId}-${selectedDate}-${hour}`;
-        const isSelected = selectedSlots.has(selKey);
+        const rowLabel = document.createElement('div');
+        rowLabel.className = 'grid-row-label';
+        const timeParts = fmtTimeParts(hour);
+        rowLabel.innerHTML = `<span class="grid-row-label-range">${timeParts.range}</span><span class="grid-row-label-period">${timeParts.period}</span>`;
+        timeList.appendChild(rowLabel);
 
-        const btn = document.createElement('button');
-        btn.type = 'button';
+        courts.forEach((court) => {
+          const key = `${court.id}-${hour}`;
+          const booking = dayBookings[key];
+          const selKey = `${court.id}-${selectedDate}-${hour}`;
+          const isSelected = selectedSlots.has(selKey);
 
-        if (booking && booking.status === 'pending') {
-          btn.className = 'time-slot unavailable pending';
-          btn.disabled = true;
-          btn.innerHTML = `<span class="pending-time">${fmtTime(hour)}</span><span class="pending-badge">Pending</span>`;
-          timeList.appendChild(btn);
-          return;
-        } else if (booking) {
-          btn.className = 'time-slot unavailable';
-          btn.disabled = true;
-        } else if (isSelected) {
-          btn.className = 'time-slot selected';
-          btn.addEventListener('click', () => toggleSlot(currentCourtId, selectedDate, hour));
-        } else {
-          btn.className = 'time-slot';
-          btn.addEventListener('click', () => toggleSlot(currentCourtId, selectedDate, hour));
-        }
-        btn.innerHTML = `<span class="dot"></span><span>${fmtTime(hour)}</span>`;
-        timeList.appendChild(btn);
+          const cell = document.createElement('button');
+          cell.type = 'button';
+
+          if (booking && booking.status === 'pending') {
+            cell.className = 'grid-cell pending';
+            cell.disabled = true;
+            cell.innerHTML = '<span>Pending</span>';
+          } else if (booking) {
+            cell.className = 'grid-cell unavailable';
+            cell.disabled = true;
+            cell.innerHTML = '<span>Booked</span>';
+          } else if (isSelected) {
+            cell.className = 'grid-cell selected';
+            cell.innerHTML = `<span>Selected</span><span class="grid-cell-price">₱${CONFIG.pricePerHour}</span>`;
+            cell.addEventListener('click', () => toggleSlot(court.id, selectedDate, hour));
+          } else {
+            cell.className = 'grid-cell';
+            cell.innerHTML = `<span>Available</span><span class="grid-cell-price">₱${CONFIG.pricePerHour}</span>`;
+            cell.addEventListener('click', () => toggleSlot(court.id, selectedDate, hour));
+          }
+          timeList.appendChild(cell);
+        });
       });
 
       // Runs inside the same height-locked update as the row rebuild above
       // (rather than as a separate call after renderTimes() returns) so a
-      // selection change's summary bar and a date change's row list always
+      // selection change's summary bar and a date change's grid always
       // resize together in one animation instead of the summary bar
       // popping in/out on its own beat.
       updateSummaryBar();
@@ -844,6 +932,7 @@
     await configReady;
     updateSummaryBar();
     renderCalendar();
+    renderDayStrip();
 
     const bookings = await dayReady;
     // Skip if the customer already picked a different date while this was

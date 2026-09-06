@@ -63,39 +63,45 @@
         </div>
       </div>
 
-      <div class="section">
-        <label class="field-label" for="courtSelect">Choose court</label>
-        <div class="court-select-wrap">
-          <select id="courtSelect" class="court-select"></select>
+      <div class="section calendar-popover-wrap">
+        <div class="day-strip-row">
+          <div class="day-strip" id="dayStrip"></div>
+          <button type="button" class="day-strip-more" id="moreDatesBtn" aria-haspopup="true" aria-expanded="false">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+            <span>More</span>
+          </button>
+        </div>
+
+        <div class="calendar-popover hidden" id="calendarPopover">
+          <div class="month-nav">
+            <button type="button" class="month-nav-btn" id="monthPrevBtn" aria-label="Previous month">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M15 19l-7-7 7-7"/></svg>
+            </button>
+            <span class="month-label" id="monthLabel">&nbsp;</span>
+            <button type="button" class="month-nav-btn" id="monthNextBtn" aria-label="Next month">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+            </button>
+          </div>
+          <div class="weekday-row">
+            <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+          </div>
+          <div class="cal-grid" id="calGrid"></div>
         </div>
       </div>
 
       <div class="card-divider"></div>
 
-      <!-- Calendar + times -->
+      <!-- Court x time grid -->
       <div class="section">
-        <div class="schedule-columns">
-          <div class="calendar-col">
-            <div class="month-nav">
-              <button type="button" class="month-nav-btn" id="monthPrevBtn" aria-label="Previous month">
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M15 19l-7-7 7-7"/></svg>
-              </button>
-              <span class="month-label" id="monthLabel">&nbsp;</span>
-              <button type="button" class="month-nav-btn" id="monthNextBtn" aria-label="Next month">
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
-              </button>
-            </div>
-            <div class="weekday-row">
-              <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
-            </div>
-            <div class="cal-grid" id="calGrid"></div>
-          </div>
-
-          <div class="times-col">
-            <h3 class="times-heading" id="timesHeading">&nbsp;</h3>
-            <div class="times-avail-legend"><span class="dot"></span><span>times you're available</span></div>
-            <div class="time-list" id="timeList"></div>
-          </div>
+        <h3 class="times-heading" id="timesHeading">&nbsp;</h3>
+        <div class="grid-legend">
+          <span class="legend-item"><span class="legend-dot legend-available"></span>Available</span>
+          <span class="legend-item"><span class="legend-dot legend-selected"></span>Selected</span>
+          <span class="legend-item"><span class="legend-dot legend-booked"></span>Booked</span>
+          <span class="legend-item"><span class="legend-dot legend-pending"></span>Pending</span>
+        </div>
+        <div class="time-grid-wrap">
+          <div class="time-grid" id="timeList"></div>
         </div>
       </div>
 
