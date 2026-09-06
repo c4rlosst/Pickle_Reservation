@@ -126,8 +126,19 @@
   .date-field input#blockDate { padding-right: 34px; }
   /* Hide the browser's own calendar icon now that .date-field-btn is the
      one real way to open the picker -- otherwise the two sit side by
-     side and look like two separate controls. */
-  .date-field input#blockDate::-webkit-calendar-picker-indicator { display: none; }
+     side and look like two separate controls. display: none alone isn't
+     reliably honored on this specific browser-internal control across
+     Chromium/Edge builds, so also zero out its opacity and footprint. */
+  .date-field input#blockDate::-webkit-calendar-picker-indicator {
+    display: none;
+    opacity: 0;
+    -webkit-appearance: none;
+    appearance: none;
+    width: 0;
+    height: 0;
+    position: absolute;
+    pointer-events: none;
+  }
   .date-field-btn {
     position: absolute;
     right: 4px;
