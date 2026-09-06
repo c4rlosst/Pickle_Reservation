@@ -295,15 +295,17 @@ main {
 
 /* --- Calendar popover (the old always-visible month calendar, now opened
    via the "More" button for dates outside the current week strip) --- */
+/* The popover is reparented to <body> on open (see app.js) so it can
+   escape .booking-card's overflow: hidden -- its position is set with
+   fixed top/left inline styles computed from the "More" button, not by
+   this wrap, but the wrap stays as the button's own layout container. */
 .calendar-popover-wrap { position: relative; }
 
 .calendar-popover {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
+  position: fixed;
   z-index: 20;
   width: 280px;
-  max-width: calc(100vw - 48px);
+  max-width: calc(100vw - 32px);
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);

@@ -400,16 +400,51 @@
     }
   }
 
+  // The popover used to live inside .booking-card, which clips its own
+  // contents (overflow: hidden, so its rounded corners stay clean). That
+  // meant the calendar got cut off any time it was taller than whatever
+  // card space happened to be left below it -- a real risk on a phone
+  // screen, where the card is narrower and every row of extra month grid
+  // eats into less headroom. Moving the popover to <body> and positioning
+  // it with fixed coordinates computed from the "More" button escapes that
+  // clipping entirely, so it always renders in full regardless of card
+  // height. It reparents once and stays in <body> from then on -- reusing
+  // it in place is simpler than moving it back and forth on every toggle.
+  function positionCalendarPopover() {
+    const btnRect = moreDatesBtn.getBoundingClientRect();
+    const popWidth = calendarPopover.offsetWidth || 280;
+    const margin = 16;
+    let left = btnRect.right - popWidth;
+    left = Math.max(margin, Math.min(left, window.innerWidth - popWidth - margin));
+    let top = btnRect.bottom + 8;
+    const popHeight = calendarPopover.offsetHeight;
+    if (popHeight && top + popHeight > window.innerHeight - margin) {
+      // Not enough room below the button (common on short mobile viewports
+      // once the keyboard-safe area is factored in) -- open upward instead.
+      top = Math.max(margin, btnRect.top - popHeight - 8);
+    }
+    calendarPopover.style.left = `${left}px`;
+    calendarPopover.style.top = `${top}px`;
+  }
+
   function openCalendarPopover() {
+    if (calendarPopover.parentElement !== document.body) {
+      document.body.appendChild(calendarPopover);
+    }
     calendarPopover.classList.remove('hidden');
+    positionCalendarPopover();
     moreDatesBtn.classList.add('active');
     moreDatesBtn.setAttribute('aria-expanded', 'true');
+    window.addEventListener('resize', positionCalendarPopover);
+    window.addEventListener('scroll', positionCalendarPopover, true);
   }
 
   function closeCalendarPopover() {
     calendarPopover.classList.add('hidden');
     moreDatesBtn.classList.remove('active');
     moreDatesBtn.setAttribute('aria-expanded', 'false');
+    window.removeEventListener('resize', positionCalendarPopover);
+    window.removeEventListener('scroll', positionCalendarPopover, true);
   }
 
   moreDatesBtn.addEventListener('click', () => {
@@ -429,11 +464,13 @@
     const floor = firstOfMonth(new Date());
     calendarMonth = candidate < floor ? floor : candidate;
     renderCalendar();
+    positionCalendarPopover();
   });
 
   monthNextBtn.addEventListener('click', () => {
     calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1);
     renderCalendar();
+    positionCalendarPopover();
   });
 
   // --- Times list ---
