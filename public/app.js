@@ -13,6 +13,71 @@
   // customer has paid), so nobody else can grab those slots while this
   // customer is off sending money. { groupId, holdExpiresAt } or null.
   let currentHold = null;
+
+  // currentHold/selectedSlots above are plain in-memory variables, so a
+  // refresh while the payment screen is open used to wipe them -- the
+  // customer lost all track of their reservation, but the server-side hold
+  // was still very much alive, so their own slot(s) just sat there showing
+  // as unavailable/"Pending" (to them and everyone else) until the
+  // countdown ran out on its own, with no way back into that booking in
+  // the meantime. Mirroring the hold into sessionStorage lets a refresh
+  // (or an accidental tab close+reopen) pick up exactly where it left off
+  // instead. sessionStorage specifically -- not localStorage -- because a
+  // hold is only ever relevant to this one tab's in-progress booking, not
+  // something that should resurface in a new tab or a future visit.
+  const HOLD_STORAGE_KEY = 'fora_active_hold';
+
+  function saveHoldToStorage() {
+    if (!currentHold) return;
+    try {
+      sessionStorage.setItem(HOLD_STORAGE_KEY, JSON.stringify({
+        groupId: currentHold.groupId,
+        holdExpiresAt: currentHold.holdExpiresAt,
+        slots: Array.from(selectedSlots.values()),
+      }));
+    } catch (err) {
+      // Storage can be unavailable (private browsing, quota, disabled) --
+      // the booking flow still works, it just won't survive a refresh.
+    }
+  }
+
+  function clearHoldStorage() {
+    try {
+      sessionStorage.removeItem(HOLD_STORAGE_KEY);
+    } catch (err) {}
+  }
+
+  // NOTE: deliberately does NOT release the hold on a 'pagehide'/unload
+  // event. That event fires identically for a genuine tab close AND for a
+  // plain refresh -- there is no reliable way from inside the page to tell
+  // those two apart -- so wiring an eager release to it would free the
+  // slot (possibly to someone else) the instant a customer hits refresh,
+  // directly undoing the sessionStorage restore above. A real in-app exit
+  // (the Back button) already releases immediately via
+  // releaseCurrentHold(); anything else -- refresh, tab close, the phone
+  // dying -- is handled by the hold countdown itself, which is the only
+  // mechanism that can't be fooled by an ambiguous browser event.
+
+  function readStoredHold() {
+    try {
+      const raw = sessionStorage.getItem(HOLD_STORAGE_KEY);
+      if (!raw) return null;
+      const saved = JSON.parse(raw);
+      if (!saved || !saved.groupId || !saved.holdExpiresAt || !Array.isArray(saved.slots) || !saved.slots.length) {
+        clearHoldStorage();
+        return null;
+      }
+      if (new Date(saved.holdExpiresAt).getTime() - Date.now() <= 0) {
+        // Expired while the tab was closed/reloading -- nothing to
+        // restore, and the server has (or will shortly) let it lapse too.
+        clearHoldStorage();
+        return null;
+      }
+      return saved;
+    } catch (err) {
+      return null;
+    }
+  }
   // Set by selectDate() when switching to a new date should also clear the
   // current selection. Deferred until renderTimes()'s animateListHeight
   // callback runs (rather than done immediately in selectDate) so the
@@ -234,6 +299,7 @@
         return;
       }
       currentHold = { groupId: data.groupId, holdExpiresAt: data.holdExpiresAt };
+      saveHoldToStorage();
       openModal();
       startHoldCountdown(data.holdSeconds);
     } catch (err) {
@@ -250,6 +316,7 @@
     if (!currentHold) return;
     const { groupId } = currentHold;
     currentHold = null;
+    clearHoldStorage();
     stopHoldCountdown();
     // Those slots are free again, so don't let a cached copy of the day
     // keep showing them as held.
@@ -303,6 +370,7 @@
   function handleHoldExpired() {
     stopHoldCountdown();
     currentHold = null;
+    clearHoldStorage();
     closeModal();
     selectedSlots.clear();
     updateSummaryBar();
@@ -940,6 +1008,7 @@
 
       stopHoldCountdown();
       currentHold = null;
+      clearHoldStorage();
       el('holdTimer').classList.add('hidden');
       bookingForm.classList.add('hidden');
       el('selectedSlotsList').classList.add('hidden');
@@ -957,6 +1026,16 @@
   });
 
   (async function init() {
+    // Restoring a hold (see readStoredHold's comment above) needs its
+    // slots' date up front, before kicking off the day fetch below --
+    // otherwise that fetch would load today's availability instead of the
+    // held date, and the restored confirm screen would open over a grid
+    // that doesn't even show its own slots as taken.
+    const restoredHold = readStoredHold();
+    if (restoredHold) {
+      selectedDate = restoredHold.slots[0].date;
+    }
+
     // Fire both requests at once rather than waiting for the config
     // response before even asking for availability. The availability
     // request only needs selectedDate, which is computed locally, so the
@@ -970,6 +1049,16 @@
     updateSummaryBar();
     renderCalendar();
     renderDayStrip();
+
+    if (restoredHold) {
+      restoredHold.slots.forEach((s) => {
+        selectedSlots.set(`${s.courtId}-${s.date}-${s.hour}`, s);
+      });
+      currentHold = { groupId: restoredHold.groupId, holdExpiresAt: restoredHold.holdExpiresAt };
+      const secondsLeft = Math.round((new Date(restoredHold.holdExpiresAt).getTime() - Date.now()) / 1000);
+      openModal();
+      startHoldCountdown(secondsLeft);
+    }
 
     const bookings = await dayReady;
     // Skip if the customer already picked a different date while this was
