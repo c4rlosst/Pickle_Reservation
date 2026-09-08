@@ -532,6 +532,50 @@
     }
     .row-actions button.card-toggle-btn:hover { text-decoration: underline; }
   }
+
+  /* --- Whole-day toggle on the block-a-slot form --- */
+  .whole-day-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .whole-day-toggle input { cursor: pointer; }
+
+  /* --- Facility settings modal --- */
+  .settings-card { max-width: 560px; width: 92vw; max-height: 82vh; overflow-y: auto; text-align: left; }
+  .settings-hours-row { display: flex; gap: 16px; }
+  .settings-hours-row > div { flex: 1; }
+  #settingsCourtsList { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+  .settings-court-row {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--surface-2);
+  }
+  .settings-court-top { display: flex; align-items: center; gap: 8px; }
+  .settings-court-top .court-name { flex: 1; }
+  .settings-court-remove {
+    flex: none; width: 28px; height: 28px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); background: var(--card-bg); color: var(--muted);
+    cursor: pointer; font-size: 16px; line-height: 1; font-family: inherit;
+  }
+  .settings-court-remove:hover { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .settings-court-remove:active { transform: scale(0.92); }
+  .settings-court-price { display: flex; align-items: center; gap: 6px; }
+  .settings-court-price .court-price { width: 90px; }
+  .settings-peak-toggle { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; font-weight: 600; color: var(--muted); cursor: pointer; }
+  .settings-peak-toggle input { cursor: pointer; }
+  .settings-peak-fields { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .settings-peak-fields.hidden { display: none; }
+  .settings-peak-fields .court-peak-price { width: 90px; }
 </style>
 </head>
 <body>
@@ -543,6 +587,7 @@
       <p id="siteVenueSub">Manage FORA Pickleball court bookings</p>
     </div>
   </div>
+  <button type="button" class="site-header-action hidden" id="settingsBtn">Settings</button>
   <button type="button" class="site-header-action hidden" id="changePasswordBtn">Change password</button>
 </header>
 <div class="site-divider" aria-hidden="true"><div class="site-divider-line"></div></div>
@@ -570,8 +615,13 @@
       </div>
       <input type="text" id="blockNotes" placeholder="Reason (optional)" />
       <button id="blockBtn">Block</button>
+      <button type="button" class="btn ghost hidden" id="dayUnlockBtn">Unlock day</button>
     </div>
-    <div class="block-hours">
+    <label class="whole-day-toggle">
+      <input type="checkbox" id="wholeDayToggle" />
+      Whole day (every court, e.g. open play)
+    </label>
+    <div class="block-hours" id="blockHoursSection">
       <div class="block-hours-header">
         <span class="block-hours-label" id="blockHoursLabel">Select times</span>
         <span class="block-hours-legend">
@@ -656,6 +706,33 @@
         <button type="submit" class="confirm-modal-ok" id="changePasswordSubmit">Save password</button>
       </div>
     </form>
+  </div>
+</div>
+
+<div class="lightbox hidden" id="settingsModal">
+  <div class="text-lightbox-card confirm-modal-card settings-card" role="dialog" aria-modal="true">
+    <h3 class="change-pw-title">Facility settings</h3>
+
+    <div class="settings-hours-row">
+      <div>
+        <label class="change-pw-label" for="settingsOpenHour">Opens at</label>
+        <select class="change-pw-input" id="settingsOpenHour"></select>
+      </div>
+      <div>
+        <label class="change-pw-label" for="settingsCloseHour">Closes at</label>
+        <select class="change-pw-input" id="settingsCloseHour"></select>
+      </div>
+    </div>
+
+    <label class="change-pw-label" style="margin-top:18px;">Courts</label>
+    <div id="settingsCourtsList"></div>
+    <button type="button" class="btn ghost" id="settingsAddCourtBtn" style="margin-top:10px;width:100%;">+ Add court</button>
+
+    <div class="error-msg" id="settingsError"></div>
+    <div class="confirm-modal-actions">
+      <button type="button" class="confirm-modal-cancel" id="settingsCancel">Cancel</button>
+      <button type="button" class="confirm-modal-ok" id="settingsSave">Save settings</button>
+    </div>
   </div>
 </div>
 

@@ -256,6 +256,40 @@ app.post('/api/admin/block', requireAdmin, async (req, res) => {
   }
 });
 
+// Locks out every court/hour for one date in a single action (open play,
+// a tournament, a facility-wide closure) instead of blocking each slot by
+// hand. Slots that are already booked/pending/blocked are left alone.
+app.post('/api/admin/block-day', requireAdmin, async (req, res) => {
+  const { date, notes } = req.body || {};
+  try {
+    const result = await store.blockDay({ date, notes });
+    res.status(201).json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message, code: err.code });
+  }
+});
+
+app.post('/api/admin/unblock-day', requireAdmin, async (req, res) => {
+  const { date } = req.body || {};
+  try {
+    const result = await store.unblockDay(date);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message, code: err.code });
+  }
+});
+
+// Courts (add/remove/rename/reprice) and facility-wide operating hours.
+app.put('/api/admin/settings', requireAdmin, async (req, res) => {
+  const { openHour, closeHour, courts } = req.body || {};
+  try {
+    const config = await store.updateSettings({ openHour, closeHour, courts });
+    res.json({ config });
+  } catch (err) {
+    res.status(400).json({ error: err.message, code: err.code });
+  }
+});
+
 app.post('/api/admin/groups/:groupId/confirm', requireAdmin, async (req, res) => {
   try {
     const bookings = await store.confirmGroup(req.params.groupId);

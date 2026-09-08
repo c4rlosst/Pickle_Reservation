@@ -178,6 +178,43 @@
     return c ? c.name : `Court ${courtId}`;
   }
 
+  function courtConfig(courtId) {
+    return CONFIG.courts.find((c) => c.id === courtId);
+  }
+
+  // Mirrors lib/store.js's priceForSlot on the server: a court missing its
+  // own pricePerHour falls back to the facility's flat rate, and an
+  // optional peak window overrides the base rate for hours inside it.
+  function priceForSlot(courtId, hour) {
+    const court = courtConfig(courtId) || {};
+    const base = court.pricePerHour != null ? court.pricePerHour : CONFIG.pricePerHour;
+    const hasPeak = court.peakPricePerHour != null && court.peakStartHour != null && court.peakEndHour != null;
+    if (hasPeak && hour >= court.peakStartHour && hour < court.peakEndHour) {
+      return court.peakPricePerHour;
+    }
+    return base;
+  }
+
+  // Lowest and highest hourly rate across every court/hour, for the venue
+  // header's price line -- shown as a single number when every court
+  // charges the same flat rate, or a range once any court has its own
+  // price or peak pricing.
+  function priceRange() {
+    let min = Infinity;
+    let max = -Infinity;
+    (CONFIG.courts || []).forEach((court) => {
+      const base = court.pricePerHour != null ? court.pricePerHour : CONFIG.pricePerHour;
+      min = Math.min(min, base);
+      max = Math.max(max, base);
+      if (court.peakPricePerHour != null) {
+        min = Math.min(min, court.peakPricePerHour);
+        max = Math.max(max, court.peakPricePerHour);
+      }
+    });
+    if (!Number.isFinite(min)) return { min: CONFIG.pricePerHour, max: CONFIG.pricePerHour };
+    return { min, max };
+  }
+
   function showToast(msg, type) {
     toast.textContent = msg;
     toast.className = 'toast ' + (type || '');
@@ -210,7 +247,10 @@
 
     el('venueCourtsMeta').textContent = `${CONFIG.courts.length} court${CONFIG.courts.length > 1 ? 's' : ''}`;
     el('venueHoursMeta').textContent = `${fmtHour(CONFIG.openHour)} – ${fmtHour(CONFIG.closeHour)}`;
-    el('venuePrice').textContent = `₱${CONFIG.pricePerHour}`;
+    {
+      const range = priceRange();
+      el('venuePrice').textContent = range.min === range.max ? `₱${range.min}` : `₱${range.min}–${range.max}`;
+    }
 
     const locationLink = el('venueLocationLink');
     if (CONFIG.locationMapsUrl) {
@@ -232,12 +272,12 @@
   // The platform fee is charged ONCE per booking transaction (one payment,
   // one screenshot), not once per slot -- a customer booking 6 slots in one
   // go still only pays it a single time.
-  function courtsSubtotal(n) {
-    return n * CONFIG.pricePerHour;
+  function courtsSubtotal() {
+    return Array.from(selectedSlots.values()).reduce((sum, s) => sum + priceForSlot(s.courtId, s.hour), 0);
   }
 
-  function transactionTotal(n) {
-    return courtsSubtotal(n) + (CONFIG.platformFee || 0);
+  function transactionTotal() {
+    return courtsSubtotal() + (CONFIG.platformFee || 0);
   }
 
   function updateSummaryBar() {
@@ -249,7 +289,7 @@
       bookSelectedBtn.disabled = true;
       return;
     }
-    const total = transactionTotal(n);
+    const total = transactionTotal();
     summaryText.textContent = `${n} slot${n > 1 ? 's' : ''} selected · ₱${total} total`;
     summaryText.classList.remove('hidden');
     clearSelectionBtn.disabled = false;
@@ -748,11 +788,11 @@
             cell.innerHTML = '<span>Booked</span>';
           } else if (isSelected) {
             cell.className = 'grid-cell selected';
-            cell.innerHTML = `<span>Selected</span><span class="grid-cell-price">₱${CONFIG.pricePerHour}</span>`;
+            cell.innerHTML = `<span>Selected</span><span class="grid-cell-price">₱${priceForSlot(court.id, hour)}</span>`;
             cell.addEventListener('click', () => toggleSlot(court.id, selectedDate, hour));
           } else {
             cell.className = 'grid-cell';
-            cell.innerHTML = `<span>Available</span><span class="grid-cell-price">₱${CONFIG.pricePerHour}</span>`;
+            cell.innerHTML = `<span>Available</span><span class="grid-cell-price">₱${priceForSlot(court.id, hour)}</span>`;
             cell.addEventListener('click', () => toggleSlot(court.id, selectedDate, hour));
           }
           timeList.appendChild(cell);
@@ -784,7 +824,7 @@
       const shortDate = new Date(s.date + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
       row.innerHTML = `
         <span class="slot-info"><span class="slot-date">${shortDate}</span>${fmtTime(s.hour)}<span class="slot-court">${courtName(s.courtId)}</span></span>
-        <span class="slot-price">₱${CONFIG.pricePerHour}</span>
+        <span class="slot-price">₱${priceForSlot(s.courtId, s.hour)}</span>
       `;
       list.appendChild(row);
     });
@@ -792,7 +832,7 @@
     if (fee > 0) {
       const subtotalRow = document.createElement('div');
       subtotalRow.className = 'selected-slot-row selected-slots-subtotal';
-      subtotalRow.innerHTML = `<span class="slot-info">Courts subtotal</span><span class="slot-price">₱${courtsSubtotal(slots.length)}</span>`;
+      subtotalRow.innerHTML = `<span class="slot-info">Courts subtotal</span><span class="slot-price">₱${courtsSubtotal()}</span>`;
       list.appendChild(subtotalRow);
 
       const feeRow = document.createElement('div');
@@ -803,10 +843,10 @@
 
     const totalRow = document.createElement('div');
     totalRow.className = 'selected-slots-total';
-    totalRow.innerHTML = `<span>Total</span><span>₱${transactionTotal(slots.length)}</span>`;
+    totalRow.innerHTML = `<span>Total</span><span>₱${transactionTotal()}</span>`;
     list.appendChild(totalRow);
 
-    el('paymentAmount').textContent = `₱${transactionTotal(slots.length)}`;
+    el('paymentAmount').textContent = `₱${transactionTotal()}`;
     el('paymentMethod').textContent = CONFIG.paymentMethod;
     el('paymentNumber').textContent = CONFIG.paymentNumber;
     el('paymentName').textContent = CONFIG.paymentName;
@@ -995,7 +1035,7 @@
         return;
       }
       el('successName').textContent = nameValue;
-      el('successAmount').textContent = `\u20b1${transactionTotal(selectedSlots.size)}`;
+      el('successAmount').textContent = `\u20b1${transactionTotal()}`;
       const successSlots = Array.from(selectedSlots.values()).sort(
         (a, b) => a.date.localeCompare(b.date) || a.courtId - b.courtId || a.hour - b.hour
       );

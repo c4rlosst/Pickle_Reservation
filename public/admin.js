@@ -125,12 +125,14 @@
     adminMain.classList.add('hidden');
     el('loginError').textContent = err || '';
     el('changePasswordBtn').classList.add('hidden');
+    el('settingsBtn').classList.add('hidden');
   }
 
   function showAdmin() {
     loginBox.classList.add('hidden');
     adminMain.classList.remove('hidden');
     el('changePasswordBtn').classList.remove('hidden');
+    el('settingsBtn').classList.remove('hidden');
   }
 
   // --- Change admin password ---------------------------------------------
@@ -193,6 +195,156 @@
       changePasswordError.textContent = 'Network error. Please try again.';
     } finally {
       submitBtn.disabled = false;
+    }
+  });
+
+  // --- Facility settings (courts, pricing, hours) -------------------------
+  const settingsModal = el('settingsModal');
+  const settingsError = el('settingsError');
+  let settingsCourts = []; // working copy -- only committed to CONFIG on Save
+  let settingsNextId = 1;
+
+  function hourOptionsHtml(selected) {
+    const opts = [];
+    for (let h = 0; h <= 24; h++) {
+      opts.push(`<option value="${h}" ${h === selected ? 'selected' : ''}>${fmtHour(h === 24 ? 0 : h)}${h === 24 ? ' (midnight)' : ''}</option>`);
+    }
+    return opts.join('');
+  }
+
+  function settingsCourtRowHtml(court) {
+    const hasPeak = court.peakPricePerHour != null;
+    return `
+      <div class="settings-court-row" data-id="${court.id}">
+        <div class="settings-court-top">
+          <input type="text" class="change-pw-input court-name" value="${escapeHtml(court.name || '')}" placeholder="Court name" />
+          <div class="settings-court-price">
+            <span>₱</span>
+            <input type="number" min="1" class="change-pw-input court-price" value="${court.pricePerHour != null ? court.pricePerHour : ''}" placeholder="Price/hr" />
+          </div>
+          <button type="button" class="settings-court-remove" aria-label="Remove court">&times;</button>
+        </div>
+        <label class="settings-peak-toggle">
+          <input type="checkbox" class="court-peak-enabled" ${hasPeak ? 'checked' : ''} />
+          Peak pricing
+        </label>
+        <div class="settings-peak-fields ${hasPeak ? '' : 'hidden'}">
+          <span>₱</span>
+          <input type="number" min="1" class="change-pw-input court-peak-price" value="${court.peakPricePerHour != null ? court.peakPricePerHour : ''}" placeholder="Peak price" />
+          <span>from</span>
+          <select class="change-pw-input court-peak-start">${hourOptionsHtml(court.peakStartHour != null ? court.peakStartHour : 18)}</select>
+          <span>to</span>
+          <select class="change-pw-input court-peak-end">${hourOptionsHtml(court.peakEndHour != null ? court.peakEndHour : 21)}</select>
+        </div>
+      </div>
+    `;
+  }
+
+  function readCourtRow(row) {
+    const id = Number(row.dataset.id);
+    const name = row.querySelector('.court-name').value.trim();
+    const pricePerHour = Number(row.querySelector('.court-price').value);
+    const peakEnabled = row.querySelector('.court-peak-enabled').checked;
+    const court = { id, name, pricePerHour, peakPricePerHour: null, peakStartHour: null, peakEndHour: null };
+    if (peakEnabled) {
+      court.peakPricePerHour = Number(row.querySelector('.court-peak-price').value);
+      court.peakStartHour = Number(row.querySelector('.court-peak-start').value);
+      court.peakEndHour = Number(row.querySelector('.court-peak-end').value);
+    }
+    return court;
+  }
+
+  // Re-reads every visible row into settingsCourts before any operation
+  // that re-renders the list (add/remove a court) -- renderSettingsCourts()
+  // rebuilds its HTML from that array, so without this, an in-progress
+  // edit to one court (peak pricing, a renamed court, a new price) would
+  // silently vanish the moment another row is added or removed.
+  function syncSettingsCourtsFromDom() {
+    const rows = Array.from(el('settingsCourtsList').querySelectorAll('.settings-court-row'));
+    settingsCourts = rows.map(readCourtRow);
+  }
+
+  function renderSettingsCourts() {
+    el('settingsCourtsList').innerHTML = settingsCourts.map(settingsCourtRowHtml).join('');
+  }
+
+  function openSettingsModal() {
+    settingsError.textContent = '';
+    el('settingsOpenHour').innerHTML = hourOptionsHtml(CONFIG.openHour);
+    el('settingsCloseHour').innerHTML = hourOptionsHtml(CONFIG.closeHour);
+    settingsCourts = CONFIG.courts.map((c) => Object.assign({ pricePerHour: CONFIG.pricePerHour }, c));
+    settingsNextId = settingsCourts.reduce((max, c) => Math.max(max, c.id), 0) + 1;
+    renderSettingsCourts();
+    settingsModal.classList.remove('hidden');
+  }
+
+  function closeSettingsModal() {
+    settingsModal.classList.add('hidden');
+  }
+
+  el('settingsBtn').addEventListener('click', openSettingsModal);
+  el('settingsCancel').addEventListener('click', closeSettingsModal);
+  settingsModal.addEventListener('click', (e) => {
+    if (e.target === settingsModal) closeSettingsModal();
+  });
+
+  el('settingsAddCourtBtn').addEventListener('click', () => {
+    syncSettingsCourtsFromDom();
+    settingsCourts.push({ id: settingsNextId++, name: '', pricePerHour: CONFIG.pricePerHour || 100 });
+    renderSettingsCourts();
+  });
+
+  el('settingsCourtsList').addEventListener('click', (e) => {
+    const removeBtn = e.target.closest('.settings-court-remove');
+    if (removeBtn) {
+      syncSettingsCourtsFromDom();
+      const id = Number(removeBtn.closest('.settings-court-row').dataset.id);
+      settingsCourts = settingsCourts.filter((c) => c.id !== id);
+      renderSettingsCourts();
+    }
+  });
+
+  el('settingsCourtsList').addEventListener('change', (e) => {
+    if (e.target.classList.contains('court-peak-enabled')) {
+      const fields = e.target.closest('.settings-court-row').querySelector('.settings-peak-fields');
+      fields.classList.toggle('hidden', !e.target.checked);
+    }
+  });
+
+  el('settingsSave').addEventListener('click', async () => {
+    settingsError.textContent = '';
+    const openHour = Number(el('settingsOpenHour').value);
+    const closeHour = Number(el('settingsCloseHour').value);
+
+    const rows = Array.from(el('settingsCourtsList').querySelectorAll('.settings-court-row'));
+    if (rows.length === 0) {
+      settingsError.textContent = 'At least one court is required.';
+      return;
+    }
+
+    const courts = rows.map(readCourtRow);
+
+    const saveBtn = el('settingsSave');
+    saveBtn.disabled = true;
+    try {
+      const res = await authedFetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ openHour, closeHour, courts }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        settingsError.textContent = data.error || 'Could not save settings.';
+        return;
+      }
+      CONFIG = data.config;
+      populateBlockForm();
+      closeSettingsModal();
+      showToast('Settings saved.', 'success');
+    } catch (err) {
+      settingsError.textContent = 'Network error. Please try again.';
+    } finally {
+      saveBtn.disabled = false;
     }
   });
 
@@ -296,6 +448,44 @@
     updateBlockHoursSummary();
   }
 
+  // A single checkbox folds "lock the whole day" into the same form as
+  // blocking one slot, instead of a second panel -- checking it just swaps
+  // what Block does (every court/hour on that date) and reveals Unlock day.
+  el('wholeDayToggle').addEventListener('change', (e) => {
+    const whole = e.target.checked;
+    el('blockCourt').classList.toggle('hidden', whole);
+    el('blockHoursSection').classList.toggle('hidden', whole);
+    el('dayUnlockBtn').classList.toggle('hidden', !whole);
+    el('blockBtn').textContent = whole ? 'Lock day' : 'Block';
+  });
+
+  el('dayUnlockBtn').addEventListener('click', async () => {
+    const date = el('blockDate').value;
+    if (!date) {
+      showToast('Pick a date to unlock', 'error');
+      return;
+    }
+    const ok = await showConfirm(`Clear every block on ${date}? This won't touch real bookings, only admin-placed blocks.`, { okLabel: 'Unlock day' });
+    if (!ok) return;
+    try {
+      const res = await authedFetch('/api/admin/unblock-day', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.error || 'Could not unlock that day.', 'error');
+        return;
+      }
+      showToast(`${data.unblocked} block${data.unblocked === 1 ? '' : 's'} cleared`, 'success');
+      await loadBookings();
+      updateBlockHoursAvailability();
+    } catch (err) {
+      /* authedFetch already surfaces auth/network errors */
+    }
+  });
+
   el('blockCourt').addEventListener('change', updateBlockHoursAvailability);
   el('blockDate').addEventListener('change', updateBlockHoursAvailability);
 
@@ -331,12 +521,44 @@
   });
 
   el('blockBtn').addEventListener('click', async () => {
+    const date = el('blockDate').value;
+
+    if (el('wholeDayToggle').checked) {
+      if (!date) {
+        showToast('Pick a date to lock', 'error');
+        return;
+      }
+      const notes = el('blockNotes').value;
+      const ok = await showConfirm(`Lock every court and hour on ${date}? Slots already booked or pending are left alone.`, { okLabel: 'Lock day' });
+      if (!ok) return;
+      try {
+        const res = await authedFetch('/api/admin/block-day', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ date, notes }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          showToast(data.error || 'Could not lock that day.', 'error');
+          return;
+        }
+        const msg = data.skipped > 0
+          ? `${data.blocked} slot${data.blocked === 1 ? '' : 's'} locked, ${data.skipped} already booked/blocked`
+          : `${data.blocked} slot${data.blocked === 1 ? '' : 's'} locked`;
+        showToast(msg, 'success');
+        el('blockNotes').value = '';
+        await loadBookings();
+      } catch (err) {
+        /* authedFetch already surfaces auth/network errors */
+      }
+      return;
+    }
+
     if (selectedBlockHours.size === 0) {
       showToast('Pick at least one time to block', 'error');
       return;
     }
     const courtId = Number(el('blockCourt').value);
-    const date = el('blockDate').value;
     const notes = el('blockNotes').value;
     const hours = Array.from(selectedBlockHours).sort((a, b) => a - b);
 
